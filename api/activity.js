@@ -1,35 +1,24 @@
 // api/activity.js - Vercel serverless function returning one run with pace/HR series and detected intervals
 //
 // Usage: /api/activity?id=i201985934
-// Required environment variables: INTERVALS_API_KEY (see api/activities.js)
+// Required environment variables: see api/_lib/intervals.js
 
 const { detectIntervals, resample, smoothSpeed } = require('./_lib/detect-intervals');
+const { RUN_TYPES, intervalsGet, getStreams } = require('./_lib/intervals');
 
-const RUN_TYPES = ['Run', 'TrailRun', 'VirtualRun'];
 const CHART_SMOOTH_HALF_WINDOW = 15; // s, pace on the chart is averaged over 31 s
 const CHART_BUCKET_S = 10;            // one chart point per 10 s
 const STOP_SPEED = 1.2;               // m/s, no pace is drawn below this (standing, slow walking)
-
-async function intervalsGet(path) {
-    const auth = Buffer.from(`API_KEY:${process.env.INTERVALS_API_KEY}`).toString('base64');
-    const res = await fetch(`https://intervals.icu/api/v1${path}`, { headers: { Authorization: `Basic ${auth}` } });
-    if (!res.ok) throw Object.assign(new Error(`intervals.icu ${path} failed: ${res.status}`), { status: res.status });
-    return res.json();
-}
 
 module.exports = async (req, res) => {
     const id = req.query && req.query.id;
     if (!/^i?\d+$/.test(id || '')) return res.status(400).json({ error: 'Invalid activity id' });
 
     try {
-        const [a, streams] = await Promise.all([
-            intervalsGet(`/activity/${id}`),
-            intervalsGet(`/activity/${id}/streams.json?types=time,distance,heartrate`),
-        ]);
+        const [a, streams] = await Promise.all([intervalsGet(`/activity/${id}`), getStreams(id)]);
         if (!RUN_TYPES.includes(a.type)) return res.status(404).json({ error: 'Not a run' });
 
-        const stream = type => (streams.find(s => s.type === type) || {}).data;
-        const time = stream('time'), distance = stream('distance'), heartrate = stream('heartrate');
+        const { time, distance, heartrate } = streams;
         const { label, segments } = detectIntervals({ time, distance, heartrate }, a.icu_hr_zones);
 
         // Chart series: smoother than what detection uses, one averaged point per bucket

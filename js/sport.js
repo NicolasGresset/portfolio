@@ -1,4 +1,8 @@
-// sport.js - Render recent runs and rides from /api/activities
+// sport.js - Load /api/sport and render recent runs and rides
+
+// Shared with weekly-distance.js, which is loaded after this script
+window.sportData = fetch('/api/sport')
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
 
 (function () {
     const grid = document.getElementById('activities-grid');
@@ -41,9 +45,8 @@
 
     const renderStatus = msg => { grid.innerHTML = `<p class="activities-status">${msg}</p>`; };
 
-    fetch('/api/activities')
-        .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
-        .then(activities => {
+    window.sportData
+        .then(({ activities }) => {
             if (!activities.length) return renderStatus('Aucune activité récente.');
             // Only runs have a detail page
             grid.innerHTML = activities.map(a => {
@@ -57,6 +60,7 @@
                         <span class="activity-date">${formatDate(a.date)}</span>
                     </div>
                     <p class="activity-title">${escapeHtml(a.name)}</p>
+                    ${a.label ? `<p class="activity-card-label">${escapeHtml(a.label)}</p>` : ''}
                     <div class="activity-stats">
                         ${stat('distance', formatDistance(a.distance))}
                         ${stat('temps', formatDuration(a.movingTime))}

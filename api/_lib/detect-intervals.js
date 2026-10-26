@@ -202,12 +202,15 @@ function detectIntervals({ time, distance, heartrate }, hrZones) {
         // HR lags effort: skip the start of the segment
         hr: avgHr(start + Math.min(HR_LAG_S, Math.round((end - start) / 3)), end),
         splits: (type === 'work' || type === 'steady') && dist[end] - dist[start] > 1000 ? kmSplits(start, end) : [],
+        // Quality volume: efforts, and steady runs above EF (set in steady())
+        quality: type === 'work',
     });
 
     const steady = () => {
         const seg = segment('steady', 0, T);
         seg.hr = avgHr(0, T);
         const zone = ZONE_NAMES[hrZone(seg.hr, hrZones)];
+        seg.quality = zone !== 'EF';
         const label = zone === 'EF'
             ? `${formatKm(seg.distance)} EF`
             : `${formatKm(seg.distance)} ${ZONE_PHRASES[zone]} (${formatPace(seg.distance / seg.duration)})`;

@@ -1,4 +1,4 @@
-// weekly-distance.js - Weekly running distance as SVG columns, value labelled on each cap
+// weekly-distance.js - Weekly running distance as stacked SVG columns (easy below, quality above), total on each cap
 
 (function () {
     const plot  = document.getElementById('weekly-distance-chart');
@@ -9,6 +9,8 @@
     const MARGIN = { top: 20, right: 8, bottom: 28, left: 36 };
     const MAX_BAR = 24;
     const RADIUS = 4;
+    const GAP = 2;
+    const SERIES = ['easy', 'quality']; // bottom to top, colors in css/style.css
 
     const formatWeek = iso => new Date(`${iso}T00:00:00Z`)
         .toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -30,9 +32,9 @@
         return node;
     }
 
-    // Column with rounded top corners, square at the baseline
-    function columnPath(x, y, w, h) {
-        const r = Math.min(RADIUS, h, w / 2);
+    // Column segment, rounded top corners only for the topmost one
+    function columnPath(x, y, w, h, rounded) {
+        const r = rounded ? Math.min(RADIUS, h, w / 2) : 0;
         return `M${x},${y + h} V${y + r} Q${x},${y} ${x + r},${y} H${x + w - r} Q${x + w},${y} ${x + w},${y + r} V${y + h} Z`;
     }
 
@@ -42,7 +44,8 @@
         const innerH = HEIGHT - MARGIN.top - MARGIN.bottom;
         const band = innerW / weeks.length;
         const barW = Math.min(MAX_BAR, band * 0.7);
-        const yMax = niceMax(Math.max(...weeks.map(w => w.km)));
+        const total = w => w.easy + w.quality;
+        const yMax = niceMax(Math.max(...weeks.map(total)));
         const y = v => MARGIN.top + innerH - (v / yMax) * innerH;
 
         plot.innerHTML = '';
@@ -61,20 +64,32 @@
 
         weeks.forEach((w, i) => {
             const cx = MARGIN.left + band * i + band / 2;
-            const h = y(0) - y(w.km);
-            if (h > 0) {
-                el('path', { d: columnPath(cx - barW / 2, y(w.km), barW, h), class: 'chart-bar' }, svg);
-                el('text', { x: cx, y: y(w.km) - 6, class: 'chart-value', 'text-anchor': 'middle' }, svg)
-                    .textContent = formatKm(w.km);
+            // Stack bottom-up with a surface gap between segments
+            const present = SERIES.filter(k => w[k] > 0);
+            let base = 0;
+            present.forEach((k, j) => {
+                const top = y(base + w[k]);
+                const bottom = y(base) - (j > 0 ? GAP : 0);
+                if (bottom - top > 0) {
+                    el('path', {
+                        d: columnPath(cx - barW / 2, top, barW, bottom - top, j === present.length - 1),
+                        class: `chart-bar chart-bar--${k}`,
+                    }, svg);
+                }
+                base += w[k];
+            });
+            if (base > 0) {
+                el('text', { x: cx, y: y(base) - 6, class: 'chart-value', 'text-anchor': 'middle' }, svg)
+                    .textContent = formatKm(base);
             }
             el('text', { x: cx, y: HEIGHT - 8, class: 'chart-tick', 'text-anchor': 'middle' }, svg)
                 .textContent = formatWeek(w.week);
         });
     }
 
-    fetch('/api/weekly-distance')
-        .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
-        .then(weeks => {
+    // Loaded by sport.js
+    window.sportData
+        .then(({ weeks }) => {
             render(weeks);
             let lastWidth = plot.clientWidth;
             window.addEventListener('resize', () => {
