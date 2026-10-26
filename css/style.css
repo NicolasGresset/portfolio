@@ -532,6 +532,98 @@ img { max-width: 100%; display: block; }
 }
 
 /* =============================================
+   SPORT PAGE
+   ============================================= */
+.activities-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.activities-status {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+}
+
+.activity-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+.activity-card:hover {
+    background: var(--color-surface-hover);
+    border-color: var(--color-accent);
+    transform: translateY(-2px);
+}
+
+.activity-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.activity-kind {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 4px;
+    border: 1px solid;
+}
+.activity-card[data-kind="run"]  .activity-kind { color: #F59E0B; background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.3); }
+.activity-card[data-kind="ride"] .activity-kind { color: #4A90D9; background: rgba(74,144,217,0.08); border-color: rgba(74,144,217,0.3); }
+
+.activity-date {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.activity-title {
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+}
+
+.activity-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem 1rem;
+}
+
+.activity-stat {
+    display: flex;
+    flex-direction: column;
+}
+
+.activity-stat-label {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.activity-stat-value {
+    font-family: var(--font-sans);
+    font-size: 1.05rem;
+    font-weight: 500;
+    color: var(--color-text-primary);
+}
+
+.activity-link {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    margin-top: auto;
+}
+
+/* =============================================
    LAB PAGE
    ============================================= */
 .lab-coming-soon {
@@ -727,6 +819,7 @@ img { max-width: 100%; display: block; }
     .nav-toggle { display: flex; }
 
     .projects-grid { grid-template-columns: 1fr; }
+    .activities-grid { grid-template-columns: 1fr; }
 
     .blog-item { flex-direction: column; gap: 0.2rem; }
 
