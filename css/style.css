@@ -617,12 +617,6 @@ img { max-width: 100%; display: block; }
     color: var(--color-text-primary);
 }
 
-.activity-link {
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    margin-top: auto;
-}
-
 /* =============================================
    LAB PAGE
    ============================================= */

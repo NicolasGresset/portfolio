@@ -1,4 +1,4 @@
-// strava.js - Render recent Strava activities from /api/strava
+// sport.js - Render recent runs and rides from /api/activities
 
 (function () {
     const grid = document.getElementById('activities-grid');
@@ -41,7 +41,7 @@
 
     const renderStatus = msg => { grid.innerHTML = `<p class="activities-status">${msg}</p>`; };
 
-    fetch('/api/strava')
+    fetch('/api/activities')
         .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
         .then(activities => {
             if (!activities.length) return renderStatus('Aucune activité récente.');
@@ -58,9 +58,7 @@
                         ${stat(a.kind === 'ride' ? 'vitesse' : 'allure', formatPace(a))}
                         ${stat('fc moy.', a.averageHr ? `${Math.round(a.averageHr)} bpm` : '—')}
                     </div>
-                    <a href="https://www.strava.com/activities/${a.id}" class="activity-link"
-                        target="_blank" rel="noopener noreferrer">View on Strava ↗</a>
                 </article>`).join('');
         })
-        .catch(() => renderStatus('Impossible de charger les activités Strava pour le moment.'));
+        .catch(() => renderStatus('Impossible de charger les activités pour le moment.'));
 })();
