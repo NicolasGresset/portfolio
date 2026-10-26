@@ -24,6 +24,7 @@ module.exports = async (req, res) => {
             .sort((a, b) => b.start_date_local.localeCompare(a.start_date_local))
             .slice(0, MAX_ACTIVITIES)
             .map(a => ({
+                id:           a.id,
                 name:         a.name,
                 kind:         RUN_TYPES.includes(a.type) ? 'run' : 'ride',
                 date:         a.start_date_local,

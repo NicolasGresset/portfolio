@@ -45,8 +45,13 @@
         .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
         .then(activities => {
             if (!activities.length) return renderStatus('Aucune activité récente.');
-            grid.innerHTML = activities.map(a => `
-                <article class="activity-card" data-kind="${a.kind}">
+            // Only runs have a detail page
+            grid.innerHTML = activities.map(a => {
+                const open = a.kind === 'run'
+                    ? `<a href="activite.html?id=${encodeURIComponent(a.id)}" class="activity-card" data-kind="run">`
+                    : `<article class="activity-card" data-kind="${a.kind}">`;
+                return `
+                ${open}
                     <div class="activity-card-header">
                         <span class="activity-kind">${KIND_LABELS[a.kind]}</span>
                         <span class="activity-date">${formatDate(a.date)}</span>
@@ -58,7 +63,8 @@
                         ${stat(a.kind === 'ride' ? 'vitesse' : 'allure', formatPace(a))}
                         ${stat('fc moy.', a.averageHr ? `${Math.round(a.averageHr)} bpm` : '—')}
                     </div>
-                </article>`).join('');
+                ${a.kind === 'run' ? '</a>' : '</article>'}`;
+            }).join('');
         })
         .catch(() => renderStatus('Impossible de charger les activités pour le moment.'));
 })();

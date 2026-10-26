@@ -53,6 +53,16 @@
     <!-- ======= STRAVA ACTIVITIES ======= -->
     <main>
         <div class="container" style="padding-bottom: 5rem;">
+            <section class="chart-card" aria-labelledby="weekly-distance-title">
+                <div class="chart-header">
+                    <h2 class="chart-title" id="weekly-distance-title">Course à pied &mdash; km par semaine</h2>
+                </div>
+                <div class="chart-plot" id="weekly-distance-chart">
+                    <p class="activities-status">Chargement…</p>
+                </div>
+            </section>
+
+            <h2 class="section-label" style="margin: 3rem 0 1.25rem;">// dernières sorties</h2>
             <div class="activities-grid" id="activities-grid">
                 <p class="activities-status">Chargement des activités…</p>
             </div>
@@ -69,6 +79,7 @@
 
     <script src="js/nav.js"></script>
     <script src="js/sport.js"></script>
+    <script src="js/weekly-distance.js"></script>
 </body>
 
 </html>

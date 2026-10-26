@@ -617,6 +617,140 @@ img { max-width: 100%; display: block; }
     color: var(--color-text-primary);
 }
 
+/* Charts */
+.chart-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+
+.chart-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.chart-title {
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+}
+
+.chart-plot {
+    position: relative;
+    min-height: 240px;
+}
+.chart-plot svg { display: block; }
+
+.chart-grid { stroke: var(--color-border); stroke-width: 1; opacity: 0.6; }
+
+.chart-bar { fill: #F59E0B; }
+
+.chart-value {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    fill: var(--color-text-secondary);
+}
+
+.chart-tick {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    fill: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Activity detail page */
+a.activity-card { color: inherit; }
+
+.activity-label {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--color-accent);
+    margin-top: 0.75rem;
+}
+
+.activity-description {
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    font-weight: 300;
+    color: var(--color-text-secondary);
+    max-width: 640px;
+    margin-top: 0.75rem;
+    white-space: pre-line;
+}
+
+.activity-stats--wide { grid-template-columns: repeat(4, 1fr); }
+
+.chart-readout {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+    min-height: 1.2em;
+}
+
+.chart-subtitle {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 0.75rem;
+}
+
+.chart-plot--line { min-height: 0; }
+
+.chart-line {
+    fill: none;
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+.chart-line--pace-chart { stroke: var(--color-accent); }
+.chart-line--hr-chart   { stroke: #DC2626; }
+
+.chart-band { fill: #F59E0B; fill-opacity: 0.12; }
+
+.chart-cursor { stroke: var(--color-text-muted); stroke-width: 1; }
+
+.chart-hit { fill: transparent; cursor: crosshair; }
+
+.segment-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.segment {
+    display: grid;
+    grid-template-columns: 1.6fr repeat(4, 1fr);
+    gap: 1rem;
+    padding: 0.6rem 0 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+    border-left: 3px solid transparent;
+}
+.segment[data-type="work"] { border-left-color: #F59E0B; color: var(--color-text-primary); }
+
+.segment-name { color: var(--color-text-primary); }
+
+.segment--split {
+    padding-left: 2rem;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    border-bottom-style: dashed;
+}
+.segment--split .segment-name { color: var(--color-text-secondary); }
+.segment--split[data-type="work"] { color: var(--color-text-secondary); border-left-color: rgba(245, 158, 11, 0.4); }
+
 /* =============================================
    LAB PAGE
    ============================================= */
@@ -814,6 +948,9 @@ img { max-width: 100%; display: block; }
 
     .projects-grid { grid-template-columns: 1fr; }
     .activities-grid { grid-template-columns: 1fr; }
+    .activity-stats--wide { grid-template-columns: repeat(2, 1fr); }
+    .segment { grid-template-columns: repeat(4, 1fr); gap: 0.25rem 1rem; }
+    .segment-name { grid-column: 1 / -1; }
 
     .blog-item { flex-direction: column; gap: 0.2rem; }
 
