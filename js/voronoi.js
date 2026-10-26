@@ -5,20 +5,26 @@
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
-    const N = 38;
+    const N = 38;              // points visible on screen
     const SPEED = 0.28;
+    // Points also live in a margin around the screen, so border cells extend past
+    // the edges instead of ending abruptly (hull artifacts stay off-screen)
+    const MARGIN_RATIO = 0.2;
 
-    let W, H, pts = [], vels = [];
+    let W, H, m, pts = [], vels = [];
 
     function resize() {
         W = canvas.width  = window.innerWidth;
         H = canvas.height = window.innerHeight;
+        m = Math.max(W, H) * MARGIN_RATIO;
     }
 
     function init() {
         resize();
-        for (let i = 0; i < N; i++) {
-            pts.push({ x: Math.random() * W, y: Math.random() * H });
+        // Same density as N points on screen, over the screen plus its margin
+        const count = Math.round(N * ((W + 2 * m) * (H + 2 * m)) / (W * H));
+        for (let i = 0; i < count; i++) {
+            pts.push({ x: -m + Math.random() * (W + 2 * m), y: -m + Math.random() * (H + 2 * m) });
             const a = Math.random() * Math.PI * 2;
             vels.push({ vx: Math.cos(a) * SPEED, vy: Math.sin(a) * SPEED });
         }
@@ -113,11 +119,11 @@
     }
 
     function update() {
-        for (let i = 0; i < N; i++) {
+        for (let i = 0; i < pts.length; i++) {
             pts[i].x += vels[i].vx;
             pts[i].y += vels[i].vy;
-            if (pts[i].x < 0 || pts[i].x > W) { vels[i].vx *= -1; pts[i].x = Math.max(0, Math.min(W, pts[i].x)); }
-            if (pts[i].y < 0 || pts[i].y > H) { vels[i].vy *= -1; pts[i].y = Math.max(0, Math.min(H, pts[i].y)); }
+            if (pts[i].x < -m || pts[i].x > W + m) { vels[i].vx *= -1; pts[i].x = Math.max(-m, Math.min(W + m, pts[i].x)); }
+            if (pts[i].y < -m || pts[i].y > H + m) { vels[i].vy *= -1; pts[i].y = Math.max(-m, Math.min(H + m, pts[i].y)); }
         }
     }
 
@@ -176,6 +182,6 @@
 
     window.addEventListener('resize', () => {
         resize();
-        pts = pts.map(p => ({ x: Math.min(p.x, W), y: Math.min(p.y, H) }));
+        pts = pts.map(p => ({ x: Math.min(p.x, W + m), y: Math.min(p.y, H + m) }));
     });
 })();
