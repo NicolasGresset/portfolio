@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Nicolas Gresset-Bourgeois — Doctorant en informatique, protocoles de communication pour nanosatellites, Université de Toulouse.">
+    <title>Nicolas Gresset-Bourgeois — Doctorant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+    <!-- Voronoi animated background (index only) -->
+    <canvas id="voronoi-canvas" aria-hidden="true"></canvas>
+
+    <!-- ======= NAVIGATION ======= -->
+    <nav class="nav" aria-label="Navigation principale">
+        <div class="nav-inner">
+            <a href="index.html" class="nav-logo">ngb.</a>
+            <button class="nav-toggle" aria-label="Ouvrir le menu de navigation" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="nav-links" role="list">
+                <li><a href="projects.html">projets</a></li>
+                <li><a href="blog.html">blog</a></li>
+                <li><a href="cinema.html">cinéma</a></li>
+                <li><a href="#publications">publications</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- ======= HERO ======= -->
+    <section class="hero" aria-labelledby="hero-name">
+        <div class="container hero-inner">
+            <p class="hero-label">Doctorant · Nanosatellites · Protocoles de communication</p>
+            <h1 class="hero-name" id="hero-name">Nicolas<br>Gresset-Bourgeois</h1>
+            <p class="hero-tagline">// PhD student @ Université de Toulouse</p>
+            <p class="hero-bio">Doctorant en informatique appliqué au spatial, j'apprécie l'abstraction mathématique, le
+                pouvoir de la visualisation informatique et le soleil toulousain.</p>
+            <div class="hero-links">
+
+                <a href="https://github.com/NicolasGresset" class="hero-link" aria-label="Profil GitHub" target="_blank"
+                    rel="noopener noreferrer">
+                    <!-- GitHub icon -->
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path
+                            d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+                    </svg>
+                    GitHub
+                </a>
+
+                <a href="www.linkedin.com/in/gresset-bourgeois" class="hero-link" aria-label="Profil LinkedIn"
+                    target="_blank" rel="noopener noreferrer">
+                    <!-- LinkedIn icon -->
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
+                        <rect x="2" y="9" width="4" height="12" />
+                        <circle cx="4" cy="4" r="2" />
+                    </svg>
+                    LinkedIn
+                </a>
+
+                <a href="https://letterboxd.com/nicogresset/" class="hero-link" aria-label="Profil Letterboxd"
+                    target="_blank" rel="noopener noreferrer">
+                    <!-- Film reel icon -->
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="2" y="2" width="20" height="20" rx="2" />
+                        <line x1="7" y1="2" x2="7" y2="22" />
+                        <line x1="17" y1="2" x2="17" y2="22" />
+                        <line x1="2" y1="12" x2="22" y2="12" />
+                        <line x1="2" y1="7" x2="7" y2="7" />
+                        <line x1="2" y1="17" x2="7" y2="17" />
+                        <line x1="17" y1="7" x2="22" y2="7" />
+                        <line x1="17" y1="17" x2="22" y2="17" />
+                    </svg>
+                    Letterboxd
+                </a>
+
+                <a href="assets/cv.pdf" class="hero-link" aria-label="Télécharger le CV (PDF)" target="_blank">
+                    <!-- Document icon -->
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                    </svg>
+                    CV
+                </a>
+
+                <a href="mailto:nicolas@gresset-bourgeois.fr" class="hero-link" aria-label="Envoyer un email">
+                    <!-- Mail icon -->
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                        <polyline points="22,6 12,13 2,6" />
+                    </svg>
+                    Mail
+                </a>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ======= FEATURED PROJECTS ======= -->
+    <section class="section" id="projets" aria-labelledby="projects-heading">
+        <div class="container">
+            <div class="section-header">
+                <p class="section-label">// travaux</p>
+                <h2 class="section-title" id="projects-heading">Projets sélectionnés</h2>
+            </div>
+
+            <div class="projects-grid" id="featured-projects-grid"></div>
+            <div class="section-more">
+                <a href="projects.html">Tous les projets →</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ======= PUBLICATIONS ======= -->
+    <section class="section" id="publications" aria-labelledby="publi-heading">
+        <div class="container">
+            <div class="section-header">
+                <p class="section-label">// recherche</p>
+                <h2 class="section-title" id="publi-heading">Publications</h2>
+            </div>
+            <div class="publications-list">
+
+                <div class="publication-item">
+                    <h3 class="publication-title">Étude des protocoles de communication pour les nanosatellites</h3>
+                    <p class="publication-meta">Thèse en cours &middot; Université de Toulouse &middot; 2024–2027</p>
+                    <a href="https://hal.science/search/index/?q=*" class="publication-link" target="_blank"
+                        rel="noopener noreferrer">Voir sur HAL →</a>
+                </div>
+
+                <div class="publication-item pending">
+                    <p class="publication-meta">Publications à venir</p>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ======= BLOG PREVIEW ======= -->
+    <section class="section" aria-labelledby="blog-heading">
+        <div class="container">
+            <div class="section-header">
+                <p class="section-label">// notes</p>
+                <h2 class="section-title" id="blog-heading">Notes &amp; articles</h2>
+            </div>
+            <div class="blog-list" id="blog-preview-list"></div>
+            <div class="section-more">
+                <a href="blog.html">Tous les articles →</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ======= FOOTER ======= -->
+    <footer class="footer">
+        <div class="footer-inner">
+            <span class="footer-text">© 2025 Nicolas Gresset-Bourgeois</span>
+            <span class="footer-text">Toulouse, France</span>
+        </div>
+    </footer>
+
+    <script src="js/voronoi.js"></script>
+    <script src="js/nav.js"></script>
+    <script>
+        const GH_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>`;
+
+        Promise.all([
+            fetch('data/projects.json').then(r => r.json()),
+            fetch('data/posts.json').then(r => r.json())
+        ]).then(([projects, posts]) => {
+            const featuredGrid = document.getElementById('featured-projects-grid');
+            const featured = projects.filter(p => p.featured).slice(0, 3);
+            featuredGrid.innerHTML = featured.map(p => `
+                <article class="project-card">
+                    <h3 class="project-card-title">${p.title}</h3>
+                    <p class="project-card-desc">${p.desc}</p>
+                    <div class="project-tags">${p.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>
+                    <div class="project-links">
+                        <a href="${p.github}" class="project-link" aria-label="Code source sur GitHub">
+                            ${GH_SVG}GitHub
+                        </a>
+                    </div>
+                </article>`).join('');
+
+            const blogList = document.getElementById('blog-preview-list');
+            const recent = posts.slice(0, 3);
+            blogList.innerHTML = recent.length
+                ? recent.map(p => `
+                    <a href="blog/${p.slug}.html" class="blog-item">
+                        <span class="blog-item-date">${p.dateLabel}</span>
+                        <span class="blog-item-title">${p.title}</span>
+                    </a>`).join('')
+                : `<a href="blog.html" class="blog-item">
+                       <span class="blog-item-date">à venir</span>
+                       <span class="blog-item-title">Bientôt...</span>
+                   </a>`;
+        });
+    </script>
+</body>
+
+</html>
