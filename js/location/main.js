@@ -619,7 +619,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
                 <div class="chart-header"><h2 class="chart-title">Lieu retenu</h2></div>
                 <p class="location-best">${data.candidates.length
                     ? 'Aucun candidat n\'est atteignable par tous les participants.'
-                    : 'Aucun candidat trouvé autour du barycentre.'}</p>`;
+                    : 'Aucun candidat trouvé à moins de 5 km du barycentre : essayez d\'autres types de lieux.'}</p>`;
             results.hidden = false;
             return;
         }
@@ -662,7 +662,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         switch (event.type) {
         case 'start': {
             setStep('center', 'done', `${event.center.lat.toFixed(4)}, ${event.center.lon.toFixed(4)}`);
-            setStep('candidates', 'running', 'recherche à 1 km autour du barycentre…');
+            setStep('candidates', 'running', 'recherche autour du barycentre…');
             resultLayer.clearLayers();
             drawCenter(event.center);
             state.matrixModes = ORS_MODES.filter(m => participants.some(p => p.modes.includes(m)));
@@ -671,6 +671,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         }
         case 'candidates':
             setStep('candidates', 'done', `${describeCandidates(event.candidates)} `
+                + `à moins de ${(event.radius / 1000).toLocaleString('fr-FR')} km `
                 + `(données OSM du ${event.sources.osm || '—'}, GTFS du ${event.sources.gtfs})`);
             drawCandidates(event.candidates);
             setStep('matrix', state.matrixModes.length ? 'running' : 'done',

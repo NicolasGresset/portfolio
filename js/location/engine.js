@@ -13,7 +13,10 @@ import { transitTrip, forEachLimited } from './transitous.js';
 const ORS_MODES = ['walk', 'bike', 'car'];
 const SLOT_MIN = 15;
 const CAR_PARKING_S = 5 * 60;      // fixed time to park, added to every car trip
-const SEARCH_RADIUS_M = 1000;
+const RADIUS_START_M = 1000;
+const RADIUS_STEP_M = 500;
+const RADIUS_MAX_M = 5000;
+const MIN_CANDIDATES = 3;
 
 // Categories the user picks from, and the place kinds of data/pois-toulouse.json they cover
 export const CATEGORIES = { station: ['metro', 'bus'], bar: ['bar'], restaurant: ['restaurant'] };
@@ -54,12 +57,12 @@ function haversine(a, b) {
     return 2 * 6371000 * Math.asin(Math.sqrt(h));
 }
 
-// Closest places of the picked categories, within each category's quota
-function findCandidates(pois, center, categories) {
+// Closest places of the picked categories within radius meters, within each category's quota
+function candidatesWithin(pois, center, categories, radius) {
     const seen = new Set();
     const nearby = pois
         .map(p => ({ ...p, distance: Math.round(haversine(center, p)) }))
-        .filter(p => p.distance <= SEARCH_RADIUS_M)
+        .filter(p => p.distance <= radius)
         .sort((a, b) => a.distance - b.distance)
         // A place mapped twice under the same name counts once
         .filter(c => !seen.has(`${c.kind}:${c.name}`) && seen.add(`${c.kind}:${c.name}`));
@@ -73,6 +76,18 @@ function findCandidates(pois, center, categories) {
         const metro = pool.filter(p => p.kind === 'metro').slice(0, Math.ceil(quota / 2));
         return [...metro, ...pool.filter(p => !metro.includes(p)).slice(0, quota - metro.length)];
     }).sort((a, b) => a.distance - b.distance);
+}
+
+// The search radius grows by RADIUS_STEP_M until MIN_CANDIDATES are found, up to
+// RADIUS_MAX_M (local data only: no API call, whatever the radius)
+function findCandidates(pois, center, categories) {
+    let radius = RADIUS_START_M;
+    let candidates = candidatesWithin(pois, center, categories, radius);
+    while (candidates.length < MIN_CANDIDATES && radius < RADIUS_MAX_M) {
+        radius += RADIUS_STEP_M;
+        candidates = candidatesWithin(pois, center, categories, radius);
+    }
+    return { candidates, radius };
 }
 
 // Fastest available mode of one participant to one candidate, null if none
@@ -93,8 +108,8 @@ export async function evaluate({ participants, slot, categories }, keys, data, c
     const base = { date, slot: { from: arriveFrom, to: arriveTo }, center, participants };
     emit({ type: 'start', ...base });
 
-    const candidates = findCandidates(data.pois, center, categories);
-    emit({ type: 'candidates', candidates, sources: data.sources });
+    const { candidates, radius } = findCandidates(data.pois, center, categories);
+    emit({ type: 'candidates', candidates, radius, sources: data.sources });
     if (!candidates.length) {
         emit({ type: 'result', ...base, candidates, best: null });
         return emit({ type: 'done' });
