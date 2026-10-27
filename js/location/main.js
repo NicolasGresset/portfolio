@@ -11,7 +11,9 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
 
     const MAX_PARTICIPANTS = 5;
     const TOULOUSE = [43.6045, 1.4440];
-    const MIN_QUERY_LENGTH = 3;
+    const MIN_QUERY_LENGTH = 3;       // Géoplateforme suggestions
+    const MIN_LOCAL_QUERY_LENGTH = 2; // local place suggestions
+    const MAX_LOCAL_SUGGESTIONS = 5;
     const SUGGEST_DELAY_MS = 250;
     const ORS_MODES = ['walk', 'bike', 'car'];
     const MODE_LABELS = { walk: 'marche', bike: 'vélo', car: 'voiture', transit: 'transports en commun' };
@@ -176,6 +178,53 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         results.hidden = true;
     }
 
+    // Candidate places (with their precomputed addresses), loaded once per page: by the
+    // computation, or by the first address search
+    let dataPromise = null;
+    const getData = () => {
+        dataPromise = dataPromise || loadData().catch(err => { dataPromise = null; throw err; });
+        return dataPromise;
+    };
+
+    // ---- Local place search: bars, restaurants and stations by name, instant and without
+    //      any call (each word typed must start a word of the name, accents and case ignored) ----
+    const normalize = str => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const words = str => normalize(str).split(/[^a-z0-9]+/).filter(Boolean);
+    // Usual abbreviations typed for words of place names
+    const ABBREVIATIONS = { st: 'saint', ste: 'sainte', av: 'avenue', bd: 'boulevard', pl: 'place', r: 'rue' };
+    // At equal relevance: metro stations, then bars and restaurants, then the numerous bus stops
+    const KIND_RANK = { metro: 0, bar: 1, restaurant: 1, bus: 2 };
+    let placeIndex = null; // [{ place, name, words }]
+
+    function loadPlaceIndex() {
+        return getData().then(data => {
+            placeIndex = placeIndex || data.pois.filter(p => p.address)
+                .map(p => ({ place: p, name: normalize(p.name), words: words(p.name) }));
+        }).catch(err => console.error(err));
+    }
+
+    function searchLocal(text) {
+        const tokens = words(text);
+        if (!placeIndex || !tokens.length) return [];
+        const query = normalize(text).trim();
+        const matches = (w, t) => w.startsWith(t) || (ABBREVIATIONS[t] && w === ABBREVIATIONS[t]);
+        return placeIndex
+            .filter(e => tokens.every(t => e.words.some(w => matches(w, t))))
+            // Names starting with the query first, then by kind, then the shortest names
+            .sort((a, b) => (b.name.startsWith(query) - a.name.startsWith(query))
+                || KIND_RANK[a.place.kind] - KIND_RANK[b.place.kind]
+                || a.name.length - b.name.length)
+            .slice(0, MAX_LOCAL_SUGGESTIONS)
+            .map(({ place: p }) => ({
+                label:   `${p.name} — ${p.near ? 'près de ' : ''}${p.address}`,
+                name:    p.name,
+                address: `${p.near ? 'près de ' : ''}${p.address}`,
+                kind:    KIND_LABELS[p.kind],
+                lat:     p.lat,
+                lon:     p.lon,
+            }));
+    }
+
     // ---- Address autocompletion (French national address base, IGN Géoplateforme),
     //      restricted to Haute-Garonne: addresses and points of interest ----
     async function suggestPlaces(text) {
@@ -254,28 +303,42 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             setPosition(row, options[index]);
             close();
         };
-        const render = () => {
+        // Local places (name, tag and address) first, then Géoplateforme addresses;
+        // pending: Géoplateforme has not answered yet, so "no result" is not shown
+        const render = (pending = false) => {
+            if (!options.length && pending) return close();
             box.innerHTML = options.length
                 ? options.map((o, i) => `
                     <li role="option" id="${box.id}-${i}" aria-selected="false" data-index="${i}">
-                        ${escapeHtml(o.label)} <span class="location-muted">${escapeHtml(o.kind)}</span></li>`).join('')
+                        ${o.name
+                            ? `<strong>${escapeHtml(o.name)}</strong> <span class="address-tag">${escapeHtml(o.kind)}</span>
+                               <span class="address-detail">${escapeHtml(o.address)}</span>`
+                            : `${escapeHtml(o.label)} <span class="location-muted">${escapeHtml(o.kind)}</span>`}</li>`).join('')
                 : '<li class="address-empty">Aucun résultat en Haute-Garonne</li>';
             box.hidden = false;
             input.setAttribute('aria-expanded', 'true');
             active = -1;
         };
 
-        input.addEventListener('input', () => {
+        input.addEventListener('focus', loadPlaceIndex, { once: true });
+
+        input.addEventListener('input', async () => {
             if (row.dataset.lat) setPosition(row, null);
             clearTimeout(timer);
+            const id = ++requestId; // answers to older queries are ignored
             const text = input.value.trim();
-            if (text.length < MIN_QUERY_LENGTH) return close();
+            if (text.length < MIN_LOCAL_QUERY_LENGTH) return close();
+            if (!placeIndex) await loadPlaceIndex(); // typed before the data file arrived
+            if (id !== requestId) return;
+            const local = searchLocal(text);
+            options = local;
+            render(true);
+            if (text.length < MIN_QUERY_LENGTH) return;
             timer = setTimeout(async () => {
-                const id = ++requestId;
                 try {
                     const found = await suggestPlaces(text);
-                    if (id !== requestId) return; // a newer query was sent meanwhile
-                    options = found;
+                    if (id !== requestId) return;
+                    options = [...local, ...found];
                     render();
                 } catch (err) {
                     console.error(err);
@@ -391,10 +454,13 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         button.disabled = true;
         navigator.geolocation.getCurrentPosition(async pos => {
             const { latitude: lat, longitude: lon } = pos.coords;
-            const label = await reverseGeocode(lat, lon);
-            // The exact position is kept: the address only describes it
-            setPosition(row, { lat, lon, label: label || 'ma position actuelle' });
+            // The exact position is kept at once; the address, which only describes it, follows
+            setPosition(row, { lat, lon, label: 'ma position (adresse en cours…)' });
             button.disabled = false;
+            const label = await reverseGeocode(lat, lon);
+            if (row.dataset.lat !== String(lat) || row.dataset.lon !== String(lon)) return; // edited meanwhile
+            row.querySelector('[name="address"]').value = label || 'ma position actuelle';
+            updateSummary(row);
         }, () => {
             setStatus('Position refusée ou introuvable.');
             button.disabled = false;
@@ -720,13 +786,6 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             break;
         }
     }
-
-    // Candidate places, loaded once per page
-    let dataPromise = null;
-    const getData = () => {
-        dataPromise = dataPromise || loadData().catch(err => { dataPromise = null; throw err; });
-        return dataPromise;
-    };
 
     // Other place types make the displayed result stale
     document.getElementById('categories').addEventListener('change', clearResults);

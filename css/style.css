@@ -1094,6 +1094,16 @@ a.activity-card { color: inherit; }
 .address-options li[aria-selected="true"],
 .address-options li[data-index]:hover { background: var(--color-surface-hover); }
 .address-options .address-empty { cursor: default; color: var(--color-text-muted); }
+.address-tag {
+    margin-left: 0.25rem;
+    padding: 0 0.35rem;
+    border-radius: 4px;
+    background: var(--color-surface-hover);
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--color-text-secondary);
+}
+.address-detail { display: block; font-size: 0.8rem; color: var(--color-text-muted); }
 
 .participant-modes {
     grid-column: 1 / 3;
