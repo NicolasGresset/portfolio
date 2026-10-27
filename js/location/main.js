@@ -48,6 +48,12 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')}`;
     }
 
+    // Bring a section into view (below the fixed navigation, see scroll-margin-top in the CSS)
+    function scrollToSection(el) {
+        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+    }
+
     function setStatus(text) {
         status.textContent = text || '';
         status.hidden = !text;
@@ -213,9 +219,12 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             delete row.dataset.lon;
         }
         row.classList.toggle('participant--located', !!place);
+        // A located participant folds into a one-line summary, unfolded again by "modifier"
+        row.classList.toggle('participant--collapsed', !!place);
         row.querySelector('.participant-hint').textContent = place
             ? '✓ position enregistrée'
             : 'choisissez une proposition dans la liste';
+        updateSummary(row);
         updateMarker(row);
         clearResults();
         if (place) fitParticipants();
@@ -301,6 +310,10 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         row.className = 'participant';
         row.innerHTML = `
             <legend class="participant-legend"></legend>
+            <div class="participant-summary">
+                <span class="participant-summary-text"></span>
+                <button type="button" class="location-button location-button--ghost" data-action="edit">modifier</button>
+            </div>
             <label class="location-field">
                 <span>Nom</span>
                 <input type="text" name="name" maxlength="40">
@@ -325,6 +338,13 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         refreshRows();
     }
 
+    function updateSummary(row) {
+        const modes = [...row.querySelectorAll('[name="modes"]:checked')].map(c => MODE_LABELS[c.value]);
+        row.querySelector('.participant-summary-text').innerHTML = `<strong>${escapeHtml(participantName(row))}</strong>
+            · ${escapeHtml(row.querySelector('[name="address"]').value)}
+            · <span class="${modes.length ? '' : 'participant-summary-warning'}">${escapeHtml(modes.join(', ') || 'aucun mode')}</span>`;
+    }
+
     function refreshRows() {
         [...list.children].forEach((row, i) => {
             const legend = row.querySelector('legend');
@@ -332,22 +352,33 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             legend.style.color = PARTICIPANT_COLORS[i];
             row.querySelector('[name="name"]').placeholder = `Participant ${i + 1}`;
             row.querySelector('[data-action="remove"]').hidden = list.children.length <= 1;
+            updateSummary(row);
             updateMarker(row);
         });
         addBtn.disabled = list.children.length >= MAX_PARTICIPANTS;
     }
 
     list.addEventListener('input', e => {
-        if (e.target.name === 'name') updateMarker(e.target.closest('.participant'));
+        if (e.target.name !== 'name') return;
+        const row = e.target.closest('.participant');
+        updateSummary(row);
+        updateMarker(row);
     });
     list.addEventListener('change', e => {
-        if (e.target.name === 'modes') clearResults();
+        if (e.target.name !== 'modes') return;
+        updateSummary(e.target.closest('.participant'));
+        clearResults();
     });
 
     list.addEventListener('click', e => {
         const button = e.target.closest('button[data-action]');
         if (!button) return;
         const row = button.closest('.participant');
+        if (button.dataset.action === 'edit') {
+            row.classList.remove('participant--collapsed');
+            row.querySelector('[name="address"]').focus();
+            return;
+        }
         if (button.dataset.action === 'remove') {
             participantMarkers.get(row)?.remove();
             participantMarkers.delete(row);
@@ -533,27 +564,27 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
     // Steps of a transit trip: departure, walks, lines with direction and stops, arrival
     function transitSteps(trip, placeName) {
         const lines = trip.legs.filter(l => l.kind === 'line');
-        const steps = [`<li class="trip-step trip-step--time">Départ ${formatClock(trip.departure)}</li>`];
+        const items = [`<li class="trip-step trip-step--time">Départ ${formatClock(trip.departure)}</li>`];
         trip.legs.forEach((leg, k) => {
             if (leg.kind === 'walk') {
                 if (leg.seconds < 60) return;
                 const target = k === trip.legs.length - 1 ? placeName : stopName(leg.to, 'l\'arrêt');
-                steps.push(`<li class="trip-step trip-step--walk">Marche ${formatDuration(leg.seconds)} jusqu'à ${escapeHtml(target)}</li>`);
+                items.push(`<li class="trip-step trip-step--walk">Marche ${formatDuration(leg.seconds)} jusqu'à ${escapeHtml(target)}</li>`);
                 return;
             }
             const badge = leg.color
                 ? `<span class="line-badge" style="background: ${leg.color}; color: ${textOn(leg.color)}">${escapeHtml(leg.line || leg.mode)}</span>`
                 : `<span class="line-badge">${escapeHtml(leg.line || leg.mode)}</span>`;
-            steps.push(`<li class="trip-step trip-step--line">
+            items.push(`<li class="trip-step trip-step--line">
                 ${badge} <strong>${escapeHtml(leg.mode)}${leg.line ? ` ${escapeHtml(leg.line)}` : ''}</strong>
                 ${leg.headsign ? `direction ${escapeHtml(leg.headsign)}` : ''}
                 <span class="trip-step-detail">${escapeHtml(stopName(leg.from, ''))} ${formatClock(leg.departure)}
                     → ${escapeHtml(stopName(leg.to, ''))} ${formatClock(leg.arrival)}
                     · ${leg.stops} arrêt${leg.stops > 1 ? 's' : ''}</span></li>`);
         });
-        steps.push(`<li class="trip-step trip-step--time">Arrivée ${formatClock(trip.arrival)}`
+        items.push(`<li class="trip-step trip-step--time">Arrivée ${formatClock(trip.arrival)}`
             + `${lines.length > 1 ? ` · ${lines.length - 1} correspondance${lines.length > 2 ? 's' : ''}` : ''}</li>`);
-        return `<ol class="trip-steps">${steps.join('')}</ol>`;
+        return `<ol class="trip-steps">${items.join('')}</ol>`;
     }
 
     function modeDetails(modeTimes, retained) {
@@ -676,6 +707,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             current = { data: event, rows, selected: event.best, routes: new Map() };
             drawSelection(true);
             renderResults();
+            scrollToSection(results);
             break;
         }
         case 'route':
@@ -711,6 +743,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         setStatus('');
         clearResults();
         resetSteps();
+        scrollToSection(document.getElementById('location-progress'));
         submit.disabled = true;
         lastRun = { orsMatrix: 0, orsDirections: 0, transitous: 0 };
         running = true;

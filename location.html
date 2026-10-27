@@ -38,12 +38,11 @@
     </nav>
 
     <!-- ======= PAGE HEADER ======= -->
-    <header class="page-header">
+    <header class="page-header page-header--compact">
         <div class="container">
             <p class="page-header-label">// prototype</p>
             <h1 class="page-header-title">Location</h1>
-            <p
-                style="font-family: var(--font-sans); font-size: 0.9rem; font-weight: 300; color: var(--color-text-muted); margin-top: 0.75rem;">
+            <p class="page-header-intro">
                 Le point de rendez-vous qui minimise le temps de trajet total du groupe &mdash;
                 agglomération toulousaine uniquement.
             </p>
@@ -51,7 +50,7 @@
     </header>
 
     <main>
-        <div class="container" style="padding-bottom: 5rem;">
+        <div class="container location-layout" style="padding-bottom: 5rem;">
             <p class="location-banner" id="location-banner" hidden></p>
 
             <!-- ======= API KEYS (stored only in this browser) ======= -->
@@ -94,12 +93,15 @@
             </form>
 
             <!-- ======= PROGRESS & API CALLS ======= -->
-            <section class="chart-card location-progress" aria-labelledby="location-progress-title">
+            <section class="chart-card location-progress" id="location-progress" aria-labelledby="location-progress-title">
                 <div class="chart-header">
                     <h2 class="chart-title" id="location-progress-title">Calcul</h2>
                 </div>
                 <ol class="progress-steps" id="progress-steps" aria-live="polite" hidden></ol>
-                <dl class="location-calls" id="location-calls"></dl>
+                <details class="location-calls-panel">
+                    <summary>Appels API (débogage)</summary>
+                    <dl class="location-calls" id="location-calls"></dl>
+                </details>
             </section>
 
             <!-- ======= MAP ======= -->
