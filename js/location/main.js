@@ -15,8 +15,8 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
     const SUGGEST_DELAY_MS = 250;
     const ORS_MODES = ['walk', 'bike', 'car'];
     const MODE_LABELS = { walk: 'marche', bike: 'vélo', car: 'voiture', transit: 'transports en commun' };
-    const KIND_LABELS = { bar: 'bar', square: 'place', metro: 'métro', bus: 'arrêt de bus' };
-    const KIND_PLURALS = { bar: 'bars', square: 'places', metro: 'stations de métro', bus: 'arrêts de bus' };
+    const KIND_LABELS = { bar: 'bar', restaurant: 'restaurant', metro: 'métro', bus: 'arrêt de bus' };
+    const KIND_PLURALS = { bar: 'bars', restaurant: 'restaurants', metro: 'stations de métro', bus: 'arrêts de bus' };
     const PLACE_KINDS = { housenumber: 'adresse', street: 'voie', municipality: 'commune', locality: 'lieu-dit' };
     const COLORS = { candidate: '#7A90AA', best: '#EA580C', center: '#0C1A2E' };
     const STEPS = [
@@ -630,7 +630,6 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             <option value="${j}"${j === selected ? ' selected' : ''}${c.score == null ? ' disabled' : ''}>
                 ${escapeHtml(c.name)} (${KIND_LABELS[c.kind]}) — ${c.score != null ? formatDuration(c.score) : 'injoignable'}${j === data.best ? ' · retenu' : ''}
             </option>`).join('');
-        const gap = place !== best ? ` · ${formatDuration(place.score - best.score)} de plus que le lieu retenu` : '';
 
         results.innerHTML = `
             <div class="chart-header">
@@ -641,8 +640,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
                 </label>
             </div>
             <p class="location-best"><span class="location-swatch location-swatch--best"></span>
-                <strong>${escapeHtml(place.name)}</strong> (${KIND_LABELS[place.kind]}) —
-                temps total ${formatDuration(place.score)}, arrivée ${slotText}${gap}</p>
+                <strong>${escapeHtml(place.name)}</strong> (${KIND_LABELS[place.kind]}) — arrivée ${slotText}</p>
             <div class="trip-cards">${data.participants.map((p, i) => tripCard(p, i, place)).join('')}</div>`;
         results.querySelector('#place-select').addEventListener('change', e => selectPlace(Number(e.target.value)));
         results.hidden = false;
@@ -729,6 +727,9 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         return dataPromise;
     };
 
+    // Other place types make the displayed result stale
+    document.getElementById('categories').addEventListener('change', clearResults);
+
     form.addEventListener('submit', async e => {
         e.preventDefault();
         if (!keys.ors) return showKeys();
@@ -739,6 +740,8 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         } catch (err) {
             return setStatus(err.message);
         }
+        const categories = [...form.querySelectorAll('[name="categories"]:checked')].map(c => c.value);
+        if (!categories.length) return setStatus('Choisissez au moins un type de lieu.');
 
         setStatus('');
         clearResults();
@@ -752,7 +755,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         const state = {};
         try {
             const data = await getData();
-            const input = { slot: slot.value, participants: participants.map(({ row, ...p }) => p) };
+            const input = { slot: slot.value, categories, participants: participants.map(({ row, ...p }) => p) };
             // lastRun is updated by the engine as calls are made
             await evaluate(input, keys, data, lastRun, event => {
                 handleEvent(event, participants, rows, state);

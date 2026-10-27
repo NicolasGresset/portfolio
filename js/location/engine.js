@@ -14,10 +14,17 @@ const ORS_MODES = ['walk', 'bike', 'car'];
 const SLOT_MIN = 15;
 const CAR_PARKING_S = 5 * 60;      // fixed time to park, added to every car trip
 const SEARCH_RADIUS_M = 1000;
-const PER_KIND = 2;                // so that the numerous bus stops do not crowd out the rest
-const KINDS = ['bar', 'square', 'metro', 'bus'];
 
-// Candidate places (OSM bars and squares, Tisséo GTFS stops), a static file served with the site
+// Categories the user picks from, and the place kinds of data/pois-toulouse.json they cover
+export const CATEGORIES = { station: ['metro', 'bus'], bar: ['bar'], restaurant: ['restaurant'] };
+// Maximum candidates per category, by number of categories picked (fewer if fewer nearby)
+const QUOTAS = {
+    1: { station: 8, bar: 8, restaurant: 8 },
+    2: { station: 4, bar: 4, restaurant: 4 },
+    3: { station: 3, bar: 3, restaurant: 2 },
+};
+
+// Candidate places (OSM bars and restaurants, Tisséo GTFS stops), a static file served with the site
 export async function loadData() {
     const res = await fetch('data/pois-toulouse.json');
     if (!res.ok) throw new Error(`data/pois-toulouse.json failed: ${res.status}`);
@@ -47,17 +54,25 @@ function haversine(a, b) {
     return 2 * 6371000 * Math.asin(Math.sqrt(h));
 }
 
-function findCandidates(pois, center) {
+// Closest places of the picked categories, within each category's quota
+function findCandidates(pois, center, categories) {
     const seen = new Set();
-    const perKind = {};
-    return pois
-        .filter(p => KINDS.includes(p.kind))
+    const nearby = pois
         .map(p => ({ ...p, distance: Math.round(haversine(center, p)) }))
         .filter(p => p.distance <= SEARCH_RADIUS_M)
         .sort((a, b) => a.distance - b.distance)
         // A place mapped twice under the same name counts once
-        .filter(c => !seen.has(`${c.kind}:${c.name}`) && seen.add(`${c.kind}:${c.name}`))
-        .filter(c => (perKind[c.kind] = (perKind[c.kind] || 0) + 1) <= PER_KIND);
+        .filter(c => !seen.has(`${c.kind}:${c.name}`) && seen.add(`${c.kind}:${c.name}`));
+    const quotas = QUOTAS[categories.length];
+    return categories.flatMap(category => {
+        const pool = nearby.filter(p => CATEGORIES[category].includes(p.kind));
+        const quota = quotas[category];
+        if (category !== 'station') return pool.slice(0, quota);
+        // Half of the stations (rounded up) go to the metro first, so that the numerous
+        // bus stops do not crowd it out; the closest remaining stops fill the rest
+        const metro = pool.filter(p => p.kind === 'metro').slice(0, Math.ceil(quota / 2));
+        return [...metro, ...pool.filter(p => !metro.includes(p)).slice(0, quota - metro.length)];
+    }).sort((a, b) => a.distance - b.distance);
 }
 
 // Fastest available mode of one participant to one candidate, null if none
@@ -67,9 +82,10 @@ function fastest(modeTimes) {
         .reduce((best, [mode, t]) => (!best || t.seconds < best.seconds ? { mode, seconds: t.seconds } : best), null);
 }
 
-// participants: [{ name, lat, lon, modes }], slot: "HH:MM", keys: { ors },
+// participants: [{ name, lat, lon, modes }], slot: "HH:MM",
+// categories: keys of CATEGORIES (1 to 3), keys: { ors },
 // data: from loadData(), calls: external API call counters, updated as calls are made
-export async function evaluate({ participants, slot }, keys, data, calls, emit) {
+export async function evaluate({ participants, slot, categories }, keys, data, calls, emit) {
     const date = todayInToulouse();
     const arriveFrom = `${date} ${slot}`;
     const arriveTo = addMinutes(arriveFrom, SLOT_MIN);
@@ -77,7 +93,7 @@ export async function evaluate({ participants, slot }, keys, data, calls, emit) 
     const base = { date, slot: { from: arriveFrom, to: arriveTo }, center, participants };
     emit({ type: 'start', ...base });
 
-    const candidates = findCandidates(data.pois, center);
+    const candidates = findCandidates(data.pois, center, categories);
     emit({ type: 'candidates', candidates, sources: data.sources });
     if (!candidates.length) {
         emit({ type: 'result', ...base, candidates, best: null });

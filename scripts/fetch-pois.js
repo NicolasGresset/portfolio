@@ -1,9 +1,9 @@
 // fetch-pois.js - Build data/pois-toulouse.json, the meeting point candidates of the location page:
-//   - bars and squares from OpenStreetMap (one Overpass query over the Tisséo area)
+//   - bars and restaurants from OpenStreetMap (one Overpass query over the Tisséo area)
 //   - metro stations and bus stops from the Tisséo GTFS feed (stop areas, classified by the
 //     route types serving them: metro if any metro line stops there, else bus; tram-only and
 //     cable car-only stops are left out)
-// If Overpass is unavailable, the bars and squares of the previous file are kept.
+// If Overpass is unavailable, the bars and restaurants of the previous file are kept.
 //
 // Usage (needs the unzip command): node scripts/fetch-pois.js
 
@@ -110,7 +110,7 @@ async function fetchGtfsStops() {
 
 async function fetchOsmPlaces() {
     const bbox = `${TISSEO_AREA.minLat},${TISSEO_AREA.minLon},${TISSEO_AREA.maxLat},${TISSEO_AREA.maxLon}`;
-    const query = `[out:json][timeout:90][bbox:${bbox}];(nwr["amenity"="bar"]["name"];nwr["place"="square"]["name"];);out center tags;`;
+    const query = `[out:json][timeout:90][bbox:${bbox}];(nwr["amenity"="bar"]["name"];nwr["amenity"="restaurant"]["name"];);out center tags;`;
     for (const url of OVERPASS_URLS) {
         try {
             console.log(`Querying ${url}`);
@@ -124,7 +124,7 @@ async function fetchOsmPlaces() {
             return (await res.json()).elements
                 .map(el => ({
                     id:   `${el.type}/${el.id}`,
-                    kind: el.tags.amenity === 'bar' ? 'bar' : 'square',
+                    kind: el.tags.amenity === 'bar' ? 'bar' : 'restaurant',
                     name: el.tags.name,
                     lat:  round(el.lat ?? el.center?.lat),
                     lon:  round(el.lon ?? el.center?.lon),
@@ -145,9 +145,9 @@ async function fetchOsmPlaces() {
     let places = await fetchOsmPlaces();
     let osmDate = today;
     if (!places) {
-        places = (previous?.pois || []).filter(p => p.kind === 'bar' || p.kind === 'square');
+        places = (previous?.pois || []).filter(p => p.kind === 'bar' || p.kind === 'restaurant');
         osmDate = previous?.sources?.osm || null;
-        console.warn(`Overpass unavailable: keeping ${places.length} bars and squares from the previous file`);
+        console.warn(`Overpass unavailable: keeping ${places.length} bars and restaurants from the previous file`);
     }
 
     const pois = [...places, ...stops]
