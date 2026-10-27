@@ -2,7 +2,7 @@
 // form with address autocompletion, OpenStreetMap map (Leaflet), computation progress, API call
 // counters and results.
 
-import { loadData, evaluate } from './engine.js';
+import { loadData, evaluate, placeRoutes } from './engine.js';
 import { loadKeys, saveKeys, clearKeys } from './keys.js';
 
 (function () {
@@ -130,8 +130,10 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
     }).addTo(map);
     const participantMarkers = new Map(); // participant row -> marker
     const resultLayer = L.layerGroup().addTo(map);
-    let routeLayers = [];    // per participant: layer group holding its path to the chosen place
-    let routeContext = null; // participants and chosen place of the displayed result
+    let routeLayers = [];    // per participant: layer group holding its path to the selected place
+    // Displayed result: { data (result event), rows, selected (candidate index),
+    // routes (place id -> participant index -> route event) }
+    let current = null;
 
     const participantName = row => row.querySelector('[name="name"]').value.trim()
         || `Participant ${[...list.children].indexOf(row) + 1}`;
@@ -163,6 +165,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
     function clearResults() {
         resultLayer.clearLayers();
         routeLayers = [];
+        current = null;
         participantMarkers.forEach(m => m.unbindPopup());
         results.hidden = true;
     }
@@ -412,7 +415,12 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
     }
 
 
-    // ---- Map results ----
+    // ---- Results: the chosen place (best by default, or picked in the list or on the map),
+    //      each participant's trip to it, and the paths on the map ----
+    const formatClock = iso => new Date(iso).toLocaleTimeString('fr-FR', {
+        hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris',
+    });
+
     function choiceText(choice) {
         return choice ? `${formatDuration(choice.seconds)} (${MODE_LABELS[choice.mode]})` : 'injoignable';
     }
@@ -423,37 +431,43 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             .addTo(resultLayer);
     }
 
-    function drawCandidates(candidates, best = null) {
+    // Candidates in grey (clickable once evaluated), the selected one in orange
+    function drawCandidates(candidates, selected = null) {
         candidates.forEach((c, j) => {
-            if (j === best) return;
-            L.circleMarker([c.lat, c.lon], { radius: 6, color: COLORS.candidate, fillOpacity: 0.7, weight: 1 })
-                .bindPopup(`<strong>${escapeHtml(c.name)}</strong><br>${KIND_LABELS[c.kind]}`
-                    + (c.score !== undefined
-                        ? ` · ${c.score != null ? `total ${formatDuration(c.score)}` : 'injoignable pour un participant'}`
-                        : ''))
+            const isSelected = j === selected;
+            const marker = L.circleMarker([c.lat, c.lon], isSelected
+                ? { radius: 11, color: COLORS.best, fillOpacity: 0.9, weight: 3 }
+                : { radius: 6, color: COLORS.candidate, fillOpacity: 0.7, weight: 1 })
+                .bindTooltip(`${escapeHtml(c.name)} · ${KIND_LABELS[c.kind]}`
+                    + (c.score !== undefined ? ` · ${c.score != null ? `total ${formatDuration(c.score)}` : 'injoignable'}` : ''))
                 .addTo(resultLayer);
+            if (c.score != null && !isSelected) marker.on('click', () => selectPlace(j));
         });
     }
 
     const straightLine = (from, to, color) => L.polyline([[from.lat, from.lon], [to.lat, to.lon]],
         { color, weight: 2, dashArray: '4 6', opacity: 0.6 });
 
-    // Replace a participant's straight line by the path of its retained mode:
-    // solid for walk, bike, car and transit lines, dotted for walking parts of a transit trip
-    function drawRoute(event) {
-        const group = routeLayers[event.participant];
-        if (!group || !event.legs) {
-            group?.eachLayer(l => l.bindTooltip(event.error || 'pas de tracé', { sticky: true }));
+    // A participant's path to the selected place: solid for walk, bike, car and transit lines,
+    // dotted for walking parts of a transit trip; a straight dashed line until it is known
+    function drawRoute(i) {
+        const place = current.data.candidates[current.selected];
+        const p = current.data.participants[i];
+        const color = PARTICIPANT_COLORS[i];
+        const route = current.routes.get(place.id)?.get(i);
+        const group = routeLayers[i];
+        group.clearLayers();
+        if (!route?.legs) {
+            const line = straightLine(p, place, color).addTo(group);
+            if (route?.error) line.bindTooltip(route.error, { sticky: true });
             return;
         }
-        const color = PARTICIPANT_COLORS[event.participant];
-        const name = routeContext.participants[event.participant].name;
-        group.clearLayers();
-        event.legs.forEach(leg => {
-            const walking = leg.kind === 'walk' && event.mode === 'transit';
+        route.legs.forEach(leg => {
+            const walking = leg.kind === 'walk' && route.mode === 'transit';
             const label = leg.kind === 'line'
-                ? `${name} · ${leg.mode || 'ligne'} ${leg.line || ''}`
-                : `${name} · ${MODE_LABELS[walking ? 'walk' : event.mode]}`;
+                ? `${p.name} · ${leg.mode || 'ligne'} ${leg.line || ''}`
+                : `${p.name} · ${MODE_LABELS[walking ? 'walk' : route.mode]}`;
+            if (!leg.path.length) return;
             L.polyline(leg.path, walking
                 ? { color, weight: 3, dashArray: '2 6', opacity: 0.9 }
                 : { color, weight: 4, opacity: 0.8 })
@@ -462,73 +476,144 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         });
     }
 
-    function drawResult(data, rows) {
+    function drawSelection(fit) {
+        const { data, rows, selected } = current;
+        const place = data.candidates[selected];
         resultLayer.clearLayers();
         drawCenter(data.center);
-        drawCandidates(data.candidates, data.best);
-        const best = data.best != null ? data.candidates[data.best] : null;
-        const points = data.candidates.map(c => [c.lat, c.lon]);
-
-        // Straight lines until the real paths arrive (route events)
+        drawCandidates(data.candidates, selected);
         routeLayers = data.participants.map((p, i) => {
-            points.push([p.lat, p.lon]);
-            if (!best) return null;
             participantMarkers.get(rows[i])
-                ?.bindPopup(`<strong>${escapeHtml(p.name)}</strong><br>${choiceText(best.choices[i])}`);
-            return L.layerGroup([straightLine(p, best, PARTICIPANT_COLORS[i])]).addTo(resultLayer);
+                ?.bindPopup(`<strong>${escapeHtml(p.name)}</strong><br>${choiceText(place?.choices[i])}`);
+            return place ? L.layerGroup().addTo(resultLayer) : null;
         });
-        routeContext = { participants: data.participants, best };
-
-        if (best) {
-            L.circleMarker([best.lat, best.lon], { radius: 11, color: COLORS.best, fillOpacity: 0.9, weight: 3 })
-                .bindPopup(`<strong>${escapeHtml(best.name)}</strong><br>${KIND_LABELS[best.kind]} · total ${formatDuration(best.score)}`)
-                .addTo(resultLayer)
-                .openPopup();
+        if (place) data.participants.forEach((_, i) => drawRoute(i));
+        if (fit) {
+            const points = [...data.candidates.map(c => [c.lat, c.lon]), ...data.participants.map(p => [p.lat, p.lon])];
+            if (points.length) map.fitBounds(points, { padding: [30, 30], maxZoom: 16 });
         }
-        if (points.length) map.fitBounds(points, { padding: [30, 30], maxZoom: 16 });
     }
 
-    // ---- Results tables ----
+    // Route events, from the computation or from a later selection, kept per place
+    function storeRoute(event) {
+        if (!current) return;
+        if (!current.routes.has(event.place)) current.routes.set(event.place, new Map());
+        current.routes.get(event.place).set(event.participant, event);
+        if (current.data.candidates[current.selected]?.id === event.place) drawRoute(event.participant);
+    }
+
+    // Show another place; its openrouteservice paths are fetched once, only when it is shown
+    async function selectPlace(j) {
+        if (!current || j === current.selected || current.data.candidates[j]?.score == null) return;
+        current.selected = j;
+        renderResults();
+        drawSelection(false);
+        const place = current.data.candidates[j];
+        if (current.routes.has(place.id)) return;
+        current.routes.set(place.id, new Map());
+        const before = lastRun.orsDirections;
+        await placeRoutes(current.data.participants, place, keys, lastRun, event => {
+            if (event.orsQuota) orsQuota.directions = event.orsQuota;
+            storeRoute(event);
+            renderCalls();
+        });
+        if (!running) session.orsDirections += lastRun.orsDirections - before;
+        renderCalls();
+    }
+
+    // Transitous names the trip's ends START and END
+    const stopName = (name, fallback) => (!name || name === 'START' || name === 'END' ? fallback : name);
+
+    // Readable text on a line's color
+    function textOn(hex) {
+        const [r, g, b] = [1, 3, 5].map(k => parseInt(hex.slice(k, k + 2), 16));
+        return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? '#0C1A2E' : '#FFFFFF';
+    }
+
+    // Steps of a transit trip: departure, walks, lines with direction and stops, arrival
+    function transitSteps(trip, placeName) {
+        const lines = trip.legs.filter(l => l.kind === 'line');
+        const steps = [`<li class="trip-step trip-step--time">Départ ${formatClock(trip.departure)}</li>`];
+        trip.legs.forEach((leg, k) => {
+            if (leg.kind === 'walk') {
+                if (leg.seconds < 60) return;
+                const target = k === trip.legs.length - 1 ? placeName : stopName(leg.to, 'l\'arrêt');
+                steps.push(`<li class="trip-step trip-step--walk">Marche ${formatDuration(leg.seconds)} jusqu'à ${escapeHtml(target)}</li>`);
+                return;
+            }
+            const badge = leg.color
+                ? `<span class="line-badge" style="background: ${leg.color}; color: ${textOn(leg.color)}">${escapeHtml(leg.line || leg.mode)}</span>`
+                : `<span class="line-badge">${escapeHtml(leg.line || leg.mode)}</span>`;
+            steps.push(`<li class="trip-step trip-step--line">
+                ${badge} <strong>${escapeHtml(leg.mode)}${leg.line ? ` ${escapeHtml(leg.line)}` : ''}</strong>
+                ${leg.headsign ? `direction ${escapeHtml(leg.headsign)}` : ''}
+                <span class="trip-step-detail">${escapeHtml(stopName(leg.from, ''))} ${formatClock(leg.departure)}
+                    → ${escapeHtml(stopName(leg.to, ''))} ${formatClock(leg.arrival)}
+                    · ${leg.stops} arrêt${leg.stops > 1 ? 's' : ''}</span></li>`);
+        });
+        steps.push(`<li class="trip-step trip-step--time">Arrivée ${formatClock(trip.arrival)}`
+            + `${lines.length > 1 ? ` · ${lines.length - 1} correspondance${lines.length > 2 ? 's' : ''}` : ''}</li>`);
+        return `<ol class="trip-steps">${steps.join('')}</ol>`;
+    }
+
     function modeDetails(modeTimes, retained) {
         return Object.entries(modeTimes)
             .filter(([mode]) => mode !== retained)
             .map(([mode, t]) => `${MODE_LABELS[mode]} : ${t.seconds != null ? formatDuration(t.seconds) : escapeHtml(t.error)}`)
-            .join(' · ') || '—';
+            .join(' · ');
     }
 
-    function renderResults(data) {
+    function tripCard(p, i, place) {
+        const choice = place.choices[i];
+        const others = modeDetails(place.times[i], choice.mode);
+        const trip = choice.mode === 'transit' ? place.times[i].transit.trip : null;
+        return `
+            <article class="trip-card" style="--participant: ${PARTICIPANT_COLORS[i]}">
+                <h3 class="trip-card-title"><span class="location-swatch" style="background: ${PARTICIPANT_COLORS[i]}"></span>
+                    ${escapeHtml(p.name)} <span class="trip-card-mode">${MODE_LABELS[choice.mode]} · ${formatDuration(choice.seconds)}</span></h3>
+                ${trip ? transitSteps(trip, place.name)
+                    : `<p class="trip-card-direct">Trajet direct${choice.mode === 'car' ? ', dont 5 min pour se garer' : ''}.</p>`}
+                ${others ? `<p class="location-muted">Autres modes : ${others}</p>` : ''}
+            </article>`;
+    }
+
+    function renderResults() {
+        const { data, selected } = current;
+        const place = selected != null ? data.candidates[selected] : null;
         const best = data.best != null ? data.candidates[data.best] : null;
         const slotText = `${data.slot.from.slice(11)} – ${data.slot.to.slice(11)}`;
-        const ranked = [...data.candidates].sort((a, b) => (a.score ?? Infinity) - (b.score ?? Infinity));
 
-        const summary = best
-            ? `<p class="location-best"><span class="location-swatch location-swatch--best"></span>
-                   <strong>${escapeHtml(best.name)}</strong> (${KIND_LABELS[best.kind]}) —
-                   temps total ${formatDuration(best.score)}, arrivée ${slotText}</p>
-               <div class="location-table-wrap"><table class="location-table">
-                   <thead><tr><th>Participant</th><th>Mode retenu</th><th>Temps</th><th>Autres modes</th></tr></thead>
-                   <tbody>${data.participants.map((p, i) => `
-                       <tr><td><span class="location-swatch" style="background: ${PARTICIPANT_COLORS[i]}"></span>
-                           ${escapeHtml(p.name)}</td><td>${MODE_LABELS[best.choices[i].mode]}</td>
-                           <td>${formatDuration(best.choices[i].seconds)}</td>
-                           <td class="location-muted">${modeDetails(best.times[i], best.choices[i].mode)}</td></tr>`).join('')}
-                   </tbody></table></div>`
-            : `<p class="location-best">${data.candidates.length
-                ? 'Aucun candidat n\'est atteignable par tous les participants.'
-                : 'Aucun candidat trouvé autour du barycentre.'}</p>`;
+        if (!place) {
+            results.innerHTML = `
+                <div class="chart-header"><h2 class="chart-title">Lieu retenu</h2></div>
+                <p class="location-best">${data.candidates.length
+                    ? 'Aucun candidat n\'est atteignable par tous les participants.'
+                    : 'Aucun candidat trouvé autour du barycentre.'}</p>`;
+            results.hidden = false;
+            return;
+        }
+
+        const ranked = data.candidates.map((c, j) => ({ c, j }))
+            .sort((a, b) => (a.c.score ?? Infinity) - (b.c.score ?? Infinity));
+        const options = ranked.map(({ c, j }) => `
+            <option value="${j}"${j === selected ? ' selected' : ''}${c.score == null ? ' disabled' : ''}>
+                ${escapeHtml(c.name)} (${KIND_LABELS[c.kind]}) — ${c.score != null ? formatDuration(c.score) : 'injoignable'}${j === data.best ? ' · retenu' : ''}
+            </option>`).join('');
+        const gap = place !== best ? ` · ${formatDuration(place.score - best.score)} de plus que le lieu retenu` : '';
 
         results.innerHTML = `
-            <div class="chart-header"><h2 class="chart-title">Lieu retenu</h2></div>
-            ${summary}
-            ${data.candidates.length ? `
-            <h3 class="location-subtitle">Candidats évalués</h3>
-            <div class="location-table-wrap"><table class="location-table">
-                <thead><tr><th>Candidat</th><th>Type</th><th>Au barycentre</th><th>Temps total</th></tr></thead>
-                <tbody>${ranked.map(c => `
-                    <tr${c === best ? ' class="location-row--best"' : ''}>
-                        <td>${escapeHtml(c.name)}</td><td>${KIND_LABELS[c.kind]}</td><td>${c.distance} m</td>
-                        <td>${c.score != null ? formatDuration(c.score) : '<span class="location-muted">injoignable</span>'}</td></tr>`).join('')}
-                </tbody></table></div>` : ''}`;
+            <div class="chart-header">
+                <h2 class="chart-title">${place === best ? 'Lieu retenu' : 'Lieu choisi'}</h2>
+                <label class="location-field location-place-select">
+                    <span>Autres lieux</span>
+                    <select id="place-select">${options}</select>
+                </label>
+            </div>
+            <p class="location-best"><span class="location-swatch location-swatch--best"></span>
+                <strong>${escapeHtml(place.name)}</strong> (${KIND_LABELS[place.kind]}) —
+                temps total ${formatDuration(place.score)}, arrivée ${slotText}${gap}</p>
+            <div class="trip-cards">${data.participants.map((p, i) => tripCard(p, i, place)).join('')}</div>`;
+        results.querySelector('#place-select').addEventListener('change', e => selectPlace(Number(e.target.value)));
         results.hidden = false;
     }
 
@@ -588,12 +673,13 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             state.routesDone = 0;
             setStep('routes', state.routesTotal ? 'running' : 'done',
                 state.routesTotal ? `0/${state.routesTotal}` : 'aucun lieu retenu');
-            drawResult(event, rows);
-            renderResults(event);
+            current = { data: event, rows, selected: event.best, routes: new Map() };
+            drawSelection(true);
+            renderResults();
             break;
         }
         case 'route':
-            drawRoute(event);
+            storeRoute(event);
             setStep('routes', 'running', `${++state.routesDone}/${state.routesTotal}`);
             break;
         case 'done':

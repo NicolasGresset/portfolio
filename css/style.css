@@ -1185,34 +1185,66 @@ a.activity-card { color: inherit; }
 
 .location-best { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
 
-.location-subtitle {
-    margin: 1.5rem 0 0.75rem;
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    color: var(--color-text-secondary);
-}
+.location-place-select { min-width: min(100%, 22rem); }
 
-.location-table-wrap { overflow-x: auto; }
-.location-table {
-    width: 100%;
-    border-collapse: collapse;
+.trip-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+    gap: 1rem;
+}
+.trip-card {
+    padding: 1rem;
+    border: 1px solid var(--color-border);
+    border-left: 4px solid var(--participant);
+    border-radius: 6px;
     font-size: 0.85rem;
 }
-.location-table th {
-    text-align: left;
+.trip-card-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.6rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+.trip-card-mode { margin-left: auto; font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-text-secondary); }
+.trip-card-direct { margin-bottom: 0.5rem; color: var(--color-text-secondary); }
+
+.trip-steps { list-style: none; margin-bottom: 0.6rem; }
+.trip-step {
+    position: relative;
+    padding: 0.3rem 0 0.3rem 1.1rem;
+    border-left: 2px solid var(--color-border);
+}
+.trip-step::before {
+    content: '';
+    position: absolute;
+    left: -5px;
+    top: 0.75rem;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-surface);
+    border: 2px solid var(--participant);
+}
+.trip-step--time { font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-text-secondary); }
+.trip-step--walk { color: var(--color-text-secondary); }
+.trip-step-detail { display: block; font-size: 0.8rem; color: var(--color-text-muted); }
+
+.line-badge {
+    display: inline-block;
+    min-width: 1.6rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 4px;
+    background: var(--color-text-secondary);
+    color: #FFFFFF;
     font-family: var(--font-mono);
-    font-size: 0.7rem;
-    font-weight: 400;
-    color: var(--color-text-muted);
-    padding: 0.4rem 0.75rem 0.4rem 0;
-    border-bottom: 1px solid var(--color-border);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-align: center;
 }
-.location-table td {
-    padding: 0.5rem 0.75rem 0.5rem 0;
-    border-bottom: 1px solid var(--color-border);
-    vertical-align: top;
-}
-.location-row--best td { color: #C2410C; font-weight: 500; }
+
 .location-muted { color: var(--color-text-muted); font-size: 0.8rem; }
 
 /* =============================================

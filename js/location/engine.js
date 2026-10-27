@@ -111,15 +111,14 @@ export async function evaluate({ participants, slot }, keys, data, calls, emit) 
         transitPairs.push([i, j]);
     }));
 
+    // Every candidate keeps its journeys (legs, lines, times): choosing another place needs no new call
     let done = 0;
-    const transitLegs = new Map(); // "i:j" -> legs of the retained Transitous journey
     emit({ type: 'transit', done, total: transitPairs.length });
     await forEachLimited(transitPairs, async ([i, j]) => {
         try {
             calls.transitous++;
             const trip = await transitTrip(participants[i], candidates[j], arriveFrom, arriveTo);
-            times[i][j].transit = trip == null ? { error: 'aucun trajet n\'arrive dans la plage' } : { seconds: trip.seconds };
-            if (trip) transitLegs.set(`${i}:${j}`, trip.legs);
+            times[i][j].transit = trip == null ? { error: 'aucun trajet n\'arrive dans la plage' } : { seconds: trip.seconds, trip };
         } catch (err) {
             console.error(err);
             times[i][j].transit = { error: 'erreur Transitous' };
@@ -139,26 +138,30 @@ export async function evaluate({ participants, slot }, keys, data, calls, emit) 
         : null;
 
     emit({ type: 'result', ...base, candidates: evaluated, best });
-    if (best == null) return emit({ type: 'done' });
+    if (best != null) await placeRoutes(participants, evaluated[best], keys, calls, emit);
+    emit({ type: 'done' });
+}
 
-    // Paths to the chosen place with each participant's retained mode: openrouteservice
-    // directions, or the legs of the Transitous journey already fetched
-    const place = evaluated[best];
+// Paths to a place with each participant's retained mode, emitted as route events: the legs of
+// the Transitous journey already fetched, or one openrouteservice directions call per participant
+// (made only for the places actually displayed)
+export async function placeRoutes(participants, place, keys, calls, emit) {
     await Promise.all(participants.map(async (p, i) => {
-        const { mode } = place.choices[i];
+        const choice = place.choices[i];
+        if (!choice) return emit({ type: 'route', place: place.id, participant: i, legs: null, error: 'injoignable' });
+        const { mode } = choice;
         if (mode === 'transit') {
-            const legs = transitLegs.get(`${i}:${best}`);
-            return emit({ type: 'route', participant: i, mode, legs: legs || null, error: legs ? null : 'tracé indisponible' });
+            const legs = place.times[i].transit.trip?.legs;
+            return emit({ type: 'route', place: place.id, participant: i, mode, legs: legs || null, error: legs ? null : 'tracé indisponible' });
         }
         try {
             calls.orsDirections++;
             const route = await routePath(keys.ors, mode, p, place);
-            emit({ type: 'route', participant: i, mode, legs: [{ kind: mode, path: route.path }],
+            emit({ type: 'route', place: place.id, participant: i, mode, legs: [{ kind: mode, path: route.path }],
                 orsQuota: { service: 'directions', ...route.quota } });
         } catch (err) {
             console.error(err);
-            emit({ type: 'route', participant: i, mode, legs: null, error: 'tracé indisponible' });
+            emit({ type: 'route', place: place.id, participant: i, mode, legs: null, error: 'tracé indisponible' });
         }
     }));
-    emit({ type: 'done' });
 }

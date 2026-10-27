@@ -51,20 +51,33 @@ function decodePolyline(points, precision) {
     return path;
 }
 
-// Itinerary legs -> drawable legs: walking portions and transit lines
+// Itinerary legs -> walking portions and transit lines, with what the page shows and draws
 function itineraryLegs(itinerary) {
-    return itinerary.legs
-        .filter(leg => leg.legGeometry?.points)
-        .map(leg => {
-            const path = decodePolyline(leg.legGeometry.points, leg.legGeometry.precision);
-            return leg.mode === 'WALK'
-                ? { kind: 'walk', path }
-                : { kind: 'line', path, line: leg.routeShortName ?? null, mode: MODE_NAMES[leg.mode] || leg.mode.toLowerCase() };
-        });
+    return itinerary.legs.map(leg => {
+        const common = {
+            path:      leg.legGeometry?.points ? decodePolyline(leg.legGeometry.points, leg.legGeometry.precision) : [],
+            from:      leg.from?.name ?? null,
+            to:        leg.to?.name ?? null,
+            departure: leg.startTime,
+            arrival:   leg.endTime,
+            seconds:   (Date.parse(leg.endTime) - Date.parse(leg.startTime)) / 1000,
+        };
+        if (leg.mode === 'WALK') return { kind: 'walk', ...common };
+        return {
+            kind:     'line',
+            ...common,
+            mode:     MODE_NAMES[leg.mode] || leg.mode.toLowerCase(),
+            line:     leg.routeShortName ?? null,
+            headsign: leg.headsign ?? null,
+            color:    /^#?[0-9a-f]{6}$/i.test(leg.routeColor || '') ? `#${leg.routeColor.replace('#', '')}` : null,
+            stops:    (leg.intermediateStops?.length ?? 0) + 1, // stops travelled, the alighting one included
+        };
+    });
 }
 
 // Transit trip (walking included) arriving within [arriveFrom, arriveTo] ("YYYY-MM-DD HH:MM"
-// in Toulouse), for the latest departure: { seconds, legs }, or null when none arrives in the slot
+// in Toulouse), for the latest departure: { seconds, departure, arrival, legs } (times in ISO),
+// or null when none arrives in the slot
 export async function transitTrip(from, to, arriveFrom, arriveTo) {
     const params = new URLSearchParams({
         fromPlace: `${from.lat},${from.lon}`,
@@ -86,8 +99,10 @@ export async function transitTrip(from, to, arriveFrom, arriveTo) {
     if (!valid.length) return null;
     const latest = valid.reduce((a, b) => (Date.parse(b.startTime) > Date.parse(a.startTime) ? b : a));
     return {
-        seconds: (Date.parse(latest.endTime) - Date.parse(latest.startTime)) / 1000,
-        legs:    itineraryLegs(latest),
+        seconds:   (Date.parse(latest.endTime) - Date.parse(latest.startTime)) / 1000,
+        departure: latest.startTime,
+        arrival:   latest.endTime,
+        legs:      itineraryLegs(latest),
     };
 }
 
