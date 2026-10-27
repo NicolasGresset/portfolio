@@ -23,9 +23,9 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         { id: 'center',     label: 'Barycentre des participants' },
         { id: 'candidates', label: 'Lieux candidats (extrait local OSM + GTFS Tisséo)' },
         { id: 'matrix',     label: 'Temps marche, vélo, voiture (openrouteservice)' },
-        { id: 'transit',    label: 'Temps en transports en commun (Tisséo)' },
+        { id: 'transit',    label: 'Temps en transports en commun (Transitous)' },
         { id: 'result',     label: 'Sélection du lieu' },
-        { id: 'routes',     label: 'Tracés des itinéraires (openrouteservice directions, Tisséo)' },
+        { id: 'routes',     label: 'Tracés des itinéraires (openrouteservice directions, Transitous)' },
     ];
     // One color per participant (marker and path), none reused for candidates or the chosen place
     const PARTICIPANT_COLORS = ['#2563EB', '#9333EA', '#0D9488', '#DB2777', '#65A30D'];
@@ -57,48 +57,34 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
     const keysPanel  = document.getElementById('keys-panel');
     const keysForm   = document.getElementById('keys-form');
     const keysStatus = document.getElementById('keys-status');
-    const orsInput    = document.getElementById('ors-key');
-    const tisseoInput = document.getElementById('tisseo-key');
+    const orsInput   = document.getElementById('ors-key');
     let keys = loadKeys();
-    let simulated = { transit: !keys.tisseo };
 
     function showKeys(message) {
-        simulated = { transit: !keys.tisseo };
         orsInput.value = keys.ors || '';
-        tisseoInput.value = keys.tisseo || '';
         keysPanel.open = !keys.ors;
         keysStatus.textContent = message || (keys.ors
-            ? `Clé openrouteservice enregistrée${keys.tisseo ? ', clé Tisséo enregistrée' : ', pas de clé Tisséo'} (dans ce navigateur uniquement).`
+            ? 'Clé openrouteservice enregistrée (dans ce navigateur uniquement).'
             : 'Aucune clé enregistrée.');
         form.querySelector('[type="submit"]').disabled = !keys.ors;
-
-        banner.hidden = false;
-        banner.classList.toggle('location-banner--blocking', !keys.ors);
-        if (!keys.ors) {
-            banner.textContent = 'Saisissez votre clé openrouteservice dans « Clés API » pour utiliser le service.';
-        } else if (simulated.transit) {
-            banner.textContent = 'Mode test : pas de clé Tisséo, les temps en transports en commun sont simulés '
-                + '(temps en voiture × 1,5).';
-        } else {
-            banner.hidden = true;
-        }
-        renderCalls();
+        banner.hidden = !!keys.ors;
+        banner.textContent = 'Saisissez votre clé openrouteservice dans « Clé API » pour utiliser le service.';
     }
 
     keysForm.addEventListener('submit', e => {
         e.preventDefault();
-        const persisted = saveKeys({ ors: orsInput.value.trim(), tisseo: tisseoInput.value.trim() });
+        const persisted = saveKeys({ ors: orsInput.value.trim() });
         keys = loadKeys();
-        showKeys(persisted ? null : 'Stockage local indisponible : clés gardées jusqu\'à la fermeture de la page.');
+        showKeys(persisted ? null : 'Stockage local indisponible : clé gardée jusqu\'à la fermeture de la page.');
     });
     document.getElementById('keys-clear').addEventListener('click', () => {
         clearKeys();
         keys = {};
-        showKeys('Clés effacées de ce navigateur.');
+        showKeys('Clé effacée de ce navigateur.');
     });
 
     // ---- External API calls: last computation and whole session (since the page was loaded) ----
-    const session = { geocode: 0, orsMatrix: 0, orsDirections: 0, tisseo: 0 };
+    const session = { geocode: 0, orsMatrix: 0, orsDirections: 0, transitous: 0 };
     let lastRun = null;   // calls of the last (or running) computation
     let running = false;  // lastRun is not yet added to session
     // { limit, remaining, reset } per openrouteservice service, from its last answer
@@ -119,7 +105,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         callsEl.innerHTML = row('Géocodage (Géoplateforme)', 'geocode')
             + row('openrouteservice matrix', 'orsMatrix', quota(orsQuota.matrix))
             + row('openrouteservice directions', 'orsDirections', quota(orsQuota.directions))
-            + row('Tisséo', 'tisseo', simulated.transit ? ' <span class="location-muted">(simulé, aucun appel)</span>' : '');
+            + row('Transitous', 'transitous', ' <span class="location-muted">(au-delà de 720/24 h, se coordonner avec Transitous)</span>');
     }
     renderCalls();
 
@@ -457,8 +443,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
     function drawRoute(event) {
         const group = routeLayers[event.participant];
         if (!group || !event.legs) {
-            const reason = event.simulated ? 'trajet simulé, pas de tracé' : event.error;
-            group?.eachLayer(l => l.bindTooltip(reason || 'pas de tracé', { sticky: true }));
+            group?.eachLayer(l => l.bindTooltip(event.error || 'pas de tracé', { sticky: true }));
             return;
         }
         const color = PARTICIPANT_COLORS[event.participant];
@@ -566,8 +551,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             setStep('candidates', 'running', 'recherche à 1 km autour du barycentre…');
             resultLayer.clearLayers();
             drawCenter(event.center);
-            state.matrixModes = ORS_MODES.filter(m => participants.some(p => p.modes.includes(m)
-                || (m === 'car' && event.simulated.transit && p.modes.includes('transit'))));
+            state.matrixModes = ORS_MODES.filter(m => participants.some(p => p.modes.includes(m)));
             state.matrixDone = [];
             break;
         }
@@ -587,8 +571,6 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             if (state.matrixModes.length) setStep('matrix', 'done');
             const usesTransit = participants.some(p => p.modes.includes('transit'));
             if (!usesTransit) setStep('transit', 'done', 'aucun participant concerné');
-            else if (simulated.transit) setStep('transit', 'done', 'simulé : temps en voiture × 1,5');
-            else if (event.total === 0) setStep('transit', 'done', 'aucun trajet dans le périmètre Tisséo');
             else setStep('transit', event.done === event.total ? 'done' : 'running', `${event.done}/${event.total} trajets`);
             if (event.done === event.total) setStep('result', 'running');
             break;
@@ -644,7 +626,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         clearResults();
         resetSteps();
         submit.disabled = true;
-        lastRun = { orsMatrix: 0, orsDirections: 0, tisseo: 0 };
+        lastRun = { orsMatrix: 0, orsDirections: 0, transitous: 0 };
         running = true;
         renderCalls();
         const rows = participants.map(p => p.row);

@@ -56,24 +56,20 @@
 
             <!-- ======= API KEYS (stored only in this browser) ======= -->
             <details class="chart-card location-keys" id="keys-panel">
-                <summary class="chart-title">Clés API</summary>
+                <summary class="chart-title">Clé API</summary>
                 <form class="location-keys-form" id="keys-form" autocomplete="off">
                     <p class="location-muted">
-                        Les calculs se font dans votre navigateur, avec vos propres clés. Elles sont gardées
-                        uniquement dans ce navigateur et envoyées seulement aux services concernés.
+                        Les calculs se font dans votre navigateur, avec votre propre clé openrouteservice.
+                        Elle est gardée uniquement dans ce navigateur et envoyée seulement à openrouteservice.
                     </p>
                     <label class="location-field">
                         <span>openrouteservice (obligatoire) &mdash;
                             <a href="https://openrouteservice.org/dev/#/signup" target="_blank" rel="noopener noreferrer">obtenir une clé ↗</a></span>
                         <input type="password" id="ors-key" spellcheck="false">
                     </label>
-                    <label class="location-field">
-                        <span>Tisséo (facultative, sinon transports en commun simulés) &mdash; sur demande à opendata@tisseo.fr</span>
-                        <input type="password" id="tisseo-key" spellcheck="false">
-                    </label>
                     <div class="location-keys-actions">
                         <button type="submit" class="location-button location-button--primary">Enregistrer</button>
-                        <button type="button" class="location-button location-button--ghost" id="keys-clear">Effacer les clés</button>
+                        <button type="button" class="location-button location-button--ghost" id="keys-clear">Effacer la clé</button>
                     </div>
                     <p class="location-muted" id="keys-status" role="status"></p>
                 </form>
@@ -121,6 +117,14 @@
                 <p class="location-sources location-muted">
                     Lieux : bars et places &copy; contributeurs OpenStreetMap, arrêts &copy; Tisséo (GTFS),
                     sous licence ODbL.
+                    Transports en commun : <a href="https://transitous.org" target="_blank" rel="noopener noreferrer">Transitous</a>
+                    (<a href="https://transitous.org/sources/" target="_blank" rel="noopener noreferrer">sources des données</a>).
+                    Marche, vélo, voiture : openrouteservice. Adresses : IGN Géoplateforme.
+                </p>
+                <p class="location-sources location-muted">
+                    Code source <a href="https://github.com/NicolasGresset/portfolio" target="_blank" rel="noopener noreferrer">sur GitHub</a>
+                    (licence MIT) &mdash; contact :
+                    <a href="mailto:nicolasgresset-bourgeois@orange.fr">nicolasgresset-bourgeois@orange.fr</a>
                 </p>
             </section>
 

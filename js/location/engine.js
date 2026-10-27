@@ -8,27 +8,25 @@
 // Errors are thrown.
 
 import { durationMatrix, routePath } from './ors.js';
-import { inArea, addMinutes, transitTrip, forEachLimited } from './tisseo.js';
+import { transitTrip, forEachLimited } from './transitous.js';
 
 const ORS_MODES = ['walk', 'bike', 'car'];
 const SLOT_MIN = 15;
 const CAR_PARKING_S = 5 * 60;      // fixed time to park, added to every car trip
-const SIMULATED_TRANSIT_DETOUR = 1.5; // simulated transit time = car time x this factor
 const SEARCH_RADIUS_M = 1000;
 const PER_KIND = 2;                // so that the numerous bus stops do not crowd out the rest
 const KINDS = ['bar', 'square', 'metro', 'bus'];
 
-// Candidate places (OSM bars and squares, Tisséo GTFS stops) and the Tisséo area,
-// static files served with the site
+// Candidate places (OSM bars and squares, Tisséo GTFS stops), a static file served with the site
 export async function loadData() {
-    const get = async url => {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`${url} failed: ${res.status}`);
-        return res.json();
-    };
-    const [places, area] = await Promise.all([get('data/pois-toulouse.json'), get('data/tisseo-area.json')]);
-    return { ...places, area };
+    const res = await fetch('data/pois-toulouse.json');
+    if (!res.ok) throw new Error(`data/pois-toulouse.json failed: ${res.status}`);
+    return res.json();
 }
+
+// "YYYY-MM-DD HH:MM" + minutes, computed on the digits (read as UTC: no time zone shift)
+const addMinutes = (local, minutes) => new Date(Date.parse(`${local.replace(' ', 'T')}:00Z`) + minutes * 60000)
+    .toISOString().slice(0, 16).replace('T', ' ');
 
 // Today's date (YYYY-MM-DD) in Toulouse, whatever the device time zone
 const todayInToulouse = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
@@ -69,15 +67,14 @@ function fastest(modeTimes) {
         .reduce((best, [mode, t]) => (!best || t.seconds < best.seconds ? { mode, seconds: t.seconds } : best), null);
 }
 
-// participants: [{ name, lat, lon, modes }], slot: "HH:MM", keys: { ors, tisseo? },
+// participants: [{ name, lat, lon, modes }], slot: "HH:MM", keys: { ors },
 // data: from loadData(), calls: external API call counters, updated as calls are made
 export async function evaluate({ participants, slot }, keys, data, calls, emit) {
     const date = todayInToulouse();
     const arriveFrom = `${date} ${slot}`;
     const arriveTo = addMinutes(arriveFrom, SLOT_MIN);
-    const simulated = { transit: !keys.tisseo };
     const center = barycenter(participants);
-    const base = { date, slot: { from: arriveFrom, to: arriveTo }, simulated, center, participants };
+    const base = { date, slot: { from: arriveFrom, to: arriveTo }, center, participants };
     emit({ type: 'start', ...base });
 
     const candidates = findCandidates(data.pois, center);
@@ -90,12 +87,10 @@ export async function evaluate({ participants, slot }, keys, data, calls, emit) 
     // times[i][j][mode] = { seconds } or { error } for participant i and candidate j
     const times = participants.map(() => candidates.map(() => ({})));
 
-    // One openrouteservice matrix per mode; simulated transit also needs the car durations
-    const needsMode = (p, mode) => p.modes.includes(mode)
-        || (mode === 'car' && simulated.transit && p.modes.includes('transit'));
+    // One openrouteservice matrix per mode
     const durations = {};
     await Promise.all(ORS_MODES.map(async mode => {
-        const indices = participants.map((_, i) => i).filter(i => needsMode(participants[i], mode));
+        const indices = participants.map((_, i) => i).filter(i => participants[i].modes.includes(mode));
         if (!indices.length) return;
         calls.orsMatrix++;
         const matrix = await durationMatrix(keys.ors, mode, indices.map(i => participants[i]), candidates);
@@ -113,30 +108,21 @@ export async function evaluate({ participants, slot }, keys, data, calls, emit) 
                 : { seconds: Math.round(seconds + (mode === 'car' ? CAR_PARKING_S : 0)) };
         }
         if (!p.modes.includes('transit')) return;
-        if (!inArea(data.area, p) || !inArea(data.area, c)) {
-            times[i][j].transit = { error: 'hors périmètre Tisséo' };
-        } else if (simulated.transit) {
-            const carSeconds = durations.car.get(i)[j];
-            times[i][j].transit = carSeconds == null
-                ? { error: 'itinéraire introuvable' }
-                : { seconds: Math.round(carSeconds * SIMULATED_TRANSIT_DETOUR) };
-        } else {
-            transitPairs.push([i, j]);
-        }
+        transitPairs.push([i, j]);
     }));
 
     let done = 0;
-    const transitLegs = new Map(); // "i:j" -> legs of the retained Tisséo journey
+    const transitLegs = new Map(); // "i:j" -> legs of the retained Transitous journey
     emit({ type: 'transit', done, total: transitPairs.length });
     await forEachLimited(transitPairs, async ([i, j]) => {
         try {
-            calls.tisseo++;
-            const trip = await transitTrip(keys.tisseo, participants[i], candidates[j], arriveFrom, arriveTo);
+            calls.transitous++;
+            const trip = await transitTrip(participants[i], candidates[j], arriveFrom, arriveTo);
             times[i][j].transit = trip == null ? { error: 'aucun trajet n\'arrive dans la plage' } : { seconds: trip.seconds };
             if (trip) transitLegs.set(`${i}:${j}`, trip.legs);
         } catch (err) {
             console.error(err);
-            times[i][j].transit = { error: 'erreur Tisséo' };
+            times[i][j].transit = { error: 'erreur Transitous' };
         }
         emit({ type: 'transit', done: ++done, total: transitPairs.length });
     });
@@ -156,13 +142,13 @@ export async function evaluate({ participants, slot }, keys, data, calls, emit) 
     if (best == null) return emit({ type: 'done' });
 
     // Paths to the chosen place with each participant's retained mode: openrouteservice
-    // directions, or the legs of the Tisséo journey already fetched; none for simulated transit
+    // directions, or the legs of the Transitous journey already fetched
     const place = evaluated[best];
     await Promise.all(participants.map(async (p, i) => {
         const { mode } = place.choices[i];
         if (mode === 'transit') {
             const legs = transitLegs.get(`${i}:${best}`);
-            return emit({ type: 'route', participant: i, mode, legs: legs || null, simulated: !legs });
+            return emit({ type: 'route', participant: i, mode, legs: legs || null, error: legs ? null : 'tracé indisponible' });
         }
         try {
             calls.orsDirections++;
