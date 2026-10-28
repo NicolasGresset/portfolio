@@ -48,6 +48,31 @@ Full pipeline: `docs/location-pipeline.md`.
   loading (~16 ms), ~0.4 ms per keystroke on a PC (scan fallback for very common prefixes).
 - Declined by the user: Photon, a service worker, Tisséo API (key refused), Strasbourg/CTS.
 
+## Next big steps (stated by the user, 2026-10-28)
+
+1. **Home server**: a second-hand machine with Debian, hosted at home behind the ISP box with a port
+   opened, exposing routing services callable from anywhere. Goal: replace openrouteservice and
+   Transitous (street times, transit journeys, paths), with home-made algorithms (pedagogical
+   interest), and deal with deployment, caching, latency (ping to the box from outside unknown).
+   Points raised: HTTPS needed (the site is HTTPS: mixed content), domain / dynamic DNS, security of an
+   exposed home machine, power draw of an old server vs a mini PC, fallback when the box is down.
+   It would also hold secret keys (Tisséo) and proxy APIs without CORS.
+2. **Better meeting point algorithm** (the original goal; the user finds the current result
+   disappointing): the plain barycenter ignores modes and is not the Fermat-Weber point (a weighted
+   geometric median, Weiszfeld, weights ~ 1 / speed of each participant's mode, is easy); candidates
+   within 1 km are too close to each other, so the transit calls bring little information. Ideas:
+   cheap estimate over many places, then exact times for a geographically diverse short list;
+   a second round around the best area; with one's own one-to-many engine (Dijkstra, CSA / RAPTOR),
+   every place could be scored exactly.
+
+Tisséo API (key obtained 2026-10-28, `TISSEO_API_KEY` in `.env`), measured that day: journeys work;
+no CORS header (unusable from the browser: needs a server-side proxy); departure time only (the
+arrival parameters tried are ignored; `number` + `firstDepartureDatetime` / `lastDepartureDatetime` give
+several journeys in one call, so arrive-by needs 1–2 calls per pair); 20 journeys in 2.0 s at 6 in
+parallel (median ~0.5 s, no throttling seen) vs 27.7 s for Transitous at 3 in parallel the same
+afternoon; Tisséo network only (no TER / liO coaches); 404 with an empty list when no journey.
+Its terms of use and quotas are still to be checked.
+
 ## Open topics (update when they move)
 
 - Local search: scoring implemented 2026-10-28 with starting weights; the user tunes them after testing.
