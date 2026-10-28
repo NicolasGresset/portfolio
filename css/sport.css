@@ -1,0 +1,165 @@
+/* sport.css - Sport page and run detail (sport.html, activite.html) */
+
+/* =============================================
+   SPORT PAGE AND RUN DETAIL
+   ============================================= */
+.activity-card {
+    gap: 0.9rem;
+}
+
+.activity-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.activity-kind {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    padding: 0.15rem 0.55rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid;
+}
+.activity-card[data-kind="run"]  .activity-kind { color: var(--color-orange); background: var(--color-orange-tint); border-color: var(--color-orange-line); }
+.activity-card[data-kind="ride"] .activity-kind { color: var(--color-blue); background: var(--color-blue-tint); border-color: var(--color-blue-line); }
+
+.activity-card-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-accent);
+    line-height: 1.5;
+}
+
+.activity-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem 1rem;
+}
+
+.activity-stat {
+    display: flex;
+    flex-direction: column;
+}
+
+.activity-stat-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.activity-stat-value {
+    font-family: var(--font-sans);
+    font-size: var(--text-2xl);
+    font-weight: 500;
+    color: var(--color-text-primary);
+}
+
+.chart-bar--easy    { fill: var(--color-blue); }
+.chart-bar--quality { fill: var(--color-orange); }
+
+.chart-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+}
+.chart-swatch--easy    { background: var(--color-blue); }
+.chart-swatch--quality { background: var(--color-orange); }
+
+/* Activity detail page */
+a.activity-card { color: inherit; }
+
+.activity-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-lg);
+    color: var(--color-accent);
+    margin-top: 0.75rem;
+}
+
+.activity-description {
+    font-family: var(--font-sans);
+    font-size: var(--text-xl);
+    font-weight: 300;
+    color: var(--color-text-secondary);
+    max-width: 640px;
+    margin-top: 0.75rem;
+    white-space: pre-line;
+}
+
+.activity-stats--wide { grid-template-columns: repeat(4, 1fr); }
+.activity-charts { margin-top: 2rem; }
+
+.chart-readout {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+    min-height: 1.2em;
+}
+
+.chart-subtitle {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 0.75rem;
+}
+
+.chart-plot--line { min-height: 0; }
+
+.chart-line {
+    fill: none;
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+.chart-line--pace-chart { stroke: var(--color-accent); }
+.chart-line--hr-chart   { stroke: var(--color-red); }
+
+.chart-band { fill: var(--color-orange); fill-opacity: 0.12; }
+
+.chart-cursor { stroke: var(--color-text-muted); stroke-width: 1; }
+
+.chart-hit { fill: transparent; cursor: crosshair; }
+
+.segment-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.segment {
+    display: grid;
+    grid-template-columns: 1.6fr repeat(4, 1fr);
+    gap: 1rem;
+    padding: 0.6rem 0 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+    border-left: 3px solid transparent;
+}
+.segment[data-type="work"] { border-left-color: var(--color-orange); color: var(--color-text-primary); }
+
+.segment-name { color: var(--color-text-primary); }
+
+.segment--split {
+    padding-left: 2rem;
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    border-bottom-style: dashed;
+}
+.segment--split .segment-name { color: var(--color-text-secondary); }
+.segment--split[data-type="work"] { color: var(--color-text-secondary); border-left-color: rgba(245, 158, 11, 0.4); }
+
+/* =============================================
+   RESPONSIVE
+   ============================================= */
+@media (max-width: 768px) {
+    .activity-stats--wide { grid-template-columns: repeat(2, 1fr); }
+    .segment { grid-template-columns: repeat(4, 1fr); gap: 0.25rem 1rem; }
+    .segment-name { grid-column: 1 / -1; }
+}

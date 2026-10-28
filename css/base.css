@@ -1,0 +1,383 @@
+/* base.css - Variables, reset, navigation, footer and the components several pages share (every page) */
+
+/* =============================================
+   CSS CUSTOM PROPERTIES
+   ============================================= */
+:root {
+    --color-bg:             #F5F8FF;
+    --color-surface:        #FFFFFF;
+    --color-surface-hover:  #EDF2FF;
+    --color-accent:         #2563EB;
+    --color-accent-light:   #1D4ED8;
+    --color-border:         #C0D0E8;
+    --color-text-primary:   #0C1A2E;
+    --color-text-secondary: #3A5070;
+    --color-text-muted:     #7A90AA;
+
+    /* Series and states: orange for quality / effort and runs, blue for easy / rides */
+    --color-orange:       #F59E0B;
+    --color-orange-tint:  rgba(245, 158, 11, 0.08);
+    --color-orange-line:  rgba(245, 158, 11, 0.3);
+    --color-blue:         #4A90D9;
+    --color-blue-tint:    rgba(74, 144, 217, 0.08);
+    --color-blue-line:    rgba(74, 144, 217, 0.3);
+    --color-red:          #DC2626;
+    --color-red-dark:     #B91C1C;
+    --color-green:        #15803D;
+    --color-warning-bg:   #FFF7E6;
+    --color-warning-text: #8A5200;
+    --color-on-accent:    #FFFFFF;
+    --shadow-popup: 0 6px 18px rgba(12, 26, 46, 0.12);
+
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+
+    --font-mono: 'Space Mono', monospace;
+    --font-sans: 'DM Sans', sans-serif;
+
+    /* Font sizes of the text (headings use their own clamp() sizes) */
+    --text-2xs: 0.7rem;
+    --text-xs:  0.75rem;
+    --text-sm:  0.8rem;
+    --text-md:  0.85rem;
+    --text-lg:  0.9rem;
+    --text-xl:  0.95rem;
+    --text-2xl: 1rem;
+
+    --nav-height: 64px;
+    --max-width:  1100px;
+    --pad-x:      2rem;
+}
+
+/* =============================================
+   RESET & BASE
+   ============================================= */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+    background-color: var(--color-bg);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-weight: 400;
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+a {
+    color: var(--color-accent);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+a:hover { color: var(--color-accent-light); }
+
+img { max-width: 100%; display: block; }
+
+/* =============================================
+   NAVIGATION
+   ============================================= */
+.nav {
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 100;
+    height: var(--nav-height);
+    background: rgba(245, 248, 255, 0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.nav-inner {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 0 var(--pad-x);
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.nav-logo {
+    font-family: var(--font-mono);
+    font-size: var(--text-xl);
+    font-weight: 700;
+    color: var(--color-text-primary);
+    letter-spacing: 0.05em;
+}
+.nav-logo:hover { color: var(--color-accent-light); }
+
+.nav-links {
+    display: flex;
+    gap: 2rem;
+    list-style: none;
+}
+
+.nav-links a {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    text-transform: lowercase;
+    letter-spacing: 0.05em;
+    transition: color 0.2s ease;
+}
+.nav-links a:hover,
+.nav-links a.active { color: var(--color-accent-light); }
+
+.nav-toggle {
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+    cursor: pointer;
+    padding: 4px;
+    background: none;
+    border: none;
+}
+.nav-toggle span {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: var(--color-text-secondary);
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+/* =============================================
+   LAYOUT UTILITIES
+   ============================================= */
+.container {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 0 var(--pad-x);
+    position: relative;
+    z-index: 1;
+}
+
+/* =============================================
+   SHARED COMPONENTS (patterns used by several pages)
+   ============================================= */
+/* Cards: white surface with a border (charts and forms, activities, projects) */
+.chart-card,
+.activity-card,
+.project-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+}
+/* Cards that are links: they lift on hover */
+.activity-card,
+.project-card {
+    display: flex;
+    flex-direction: column;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
+}
+.activity-card:hover,
+.project-card:hover {
+    background: var(--color-surface-hover);
+    border-color: var(--color-accent);
+    transform: translateY(-2px);
+}
+.activities-grid,
+.projects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+/* Bold mono titles of cards */
+.chart-title,
+.film-title,
+.activity-title,
+.project-card-title {
+    font-family: var(--font-mono);
+    font-size: var(--text-xl);
+    font-weight: 700;
+    color: var(--color-text-primary);
+}
+
+/* Spaced mono labels in the accent color: "// journal de bord", years */
+.section-label,
+.page-header-label,
+.publication-year {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-accent);
+    letter-spacing: 0.15em;
+}
+.section-label,
+.page-header-label {
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+}
+
+/* Small muted mono text: dates, footer */
+.film-date,
+.activity-date,
+.footer-text {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+}
+
+/* =============================================
+   TAGS (publications, projects)
+   ============================================= */
+.tag {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    color: var(--color-accent);
+    background: rgba(37, 99, 235, 0.07);
+    border: 1px solid rgba(37, 99, 235, 0.25);
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    letter-spacing: 0.04em;
+}
+
+/* =============================================
+   PAGE HEADER (inner pages)
+   ============================================= */
+.page-header {
+    padding: calc(var(--nav-height) + 4rem) 0 3rem;
+}
+
+.page-header-title {
+    font-family: var(--font-mono);
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+    font-weight: 700;
+    color: var(--color-text-primary);
+}
+
+.page-header-intro {
+    margin-top: 0.75rem;
+    font-family: var(--font-sans);
+    font-size: var(--text-lg);
+    font-weight: 300;
+    color: var(--color-text-muted);
+}
+.page-header-intro a {
+    color: var(--color-accent);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+}
+
+/* Main content of an inner page, and the headings between its blocks */
+.page-main { padding-bottom: 5rem; }
+.section-label--spaced { margin: 3rem 0 1.25rem; }
+
+/* =============================================
+   CHARTS AND STATUS MESSAGES (sport, run detail, cinema; legends also Rendez-vous)
+   ============================================= */
+.activities-status {
+    font-family: var(--font-mono);
+    font-size: var(--text-md);
+    color: var(--color-text-muted);
+}
+
+/* Charts */
+
+.chart-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.chart-plot {
+    position: relative;
+    min-height: 240px;
+}
+.chart-plot svg { display: block; }
+
+.chart-grid { stroke: var(--color-border); stroke-width: 1; opacity: 0.6; }
+
+.chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    list-style: none;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+}
+.chart-legend li { display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+
+.chart-value {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    fill: var(--color-text-secondary);
+}
+
+.chart-tick {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    fill: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* =============================================
+   BACK LINK (run detail, articles)
+   ============================================= */
+.article-back {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    margin-bottom: 2.5rem;
+    display: inline-block;
+}
+.article-back:hover { color: var(--color-accent-light); }
+
+/* =============================================
+   FOOTER
+   ============================================= */
+.footer {
+    border-top: 1px solid var(--color-border);
+    padding: 2rem 0;
+    position: relative;
+    z-index: 1;
+}
+
+.footer-inner {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 0 var(--pad-x);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.footer-text a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.footer-text a:hover { color: var(--color-accent); }
+
+/* =============================================
+   RESPONSIVE
+   ============================================= */
+@media (max-width: 768px) {
+    :root { --pad-x: 1.5rem; }
+
+    .nav-links {
+        display: none;
+        position: absolute;
+        top: var(--nav-height);
+        left: 0;
+        right: 0;
+        background: rgba(245, 248, 255, 0.98);
+        flex-direction: column;
+        gap: 0;
+        border-bottom: 1px solid var(--color-border);
+    }
+    .nav-links.open { display: flex; }
+    .nav-links li { border-bottom: 1px solid var(--color-border); }
+    .nav-links a { display: block; padding: 1rem var(--pad-x); }
+
+    .nav-toggle { display: flex; }
+
+    .projects-grid,
+    .activities-grid { grid-template-columns: 1fr; }
+
+    .footer-inner { flex-direction: column; text-align: center; }
+}

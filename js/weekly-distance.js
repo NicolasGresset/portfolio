@@ -12,7 +12,7 @@ import { sportData } from './sport.js';
     const MAX_BAR = 24;
     const RADIUS = 4;
     const GAP = 2;
-    const SERIES = ['easy', 'quality']; // bottom to top, colors in css/style.css
+    const SERIES = ['easy', 'quality']; // bottom to top, colors in css/sport.css
     const LABEL_W = 52; // px needed by a week label such as "14 sept."
 
     const formatWeek = iso => new Date(`${iso}T00:00:00Z`)

@@ -1,0 +1,124 @@
+/* home.css - Home page: hero and animated Voronoi background (index.html) */
+
+/* =============================================
+   VORONOI CANVAS
+   ============================================= */
+#voronoi-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.6;
+}
+
+/* =============================================
+   HERO
+   ============================================= */
+.hero {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    padding-top: var(--nav-height);
+}
+
+/* Home page: the hero fills the viewport left by the footer */
+.page-home {
+    display: flex;
+    flex-direction: column;
+    min-height: 100svh;
+}
+.page-home .hero { flex: 1; min-height: 0; }
+
+/* Vertical only, so .container keeps its side padding */
+.hero-inner { padding-block: 5rem; }
+
+.hero-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-md);
+    color: var(--color-accent);
+    letter-spacing: 0.15em;
+    margin-bottom: 1.5rem;
+    opacity: 0;
+    animation: fade-up 0.7s ease forwards;
+    animation-delay: 0.1s;
+}
+
+.hero-name {
+    font-family: var(--font-mono);
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-weight: 700;
+    color: var(--color-text-primary);
+    line-height: 1.1;
+    margin-bottom: 0.75rem;
+    opacity: 0;
+    animation: fade-up 0.7s ease forwards;
+    animation-delay: 0.2s;
+}
+
+.hero-tagline {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xl);
+    color: var(--color-text-secondary);
+    margin-bottom: 1.75rem;
+    opacity: 0;
+    animation: fade-up 0.7s ease forwards;
+    animation-delay: 0.3s;
+}
+
+.hero-bio {
+    font-family: var(--font-sans);
+    font-size: var(--text-2xl);
+    font-weight: 300;
+    color: var(--color-text-secondary);
+    max-width: 540px;
+    line-height: 1.75;
+    margin-bottom: 2.25rem;
+    opacity: 0;
+    animation: fade-up 0.7s ease forwards;
+    animation-delay: 0.4s;
+}
+
+.hero-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    opacity: 0;
+    animation: fade-up 0.7s ease forwards;
+    animation-delay: 0.5s;
+}
+
+.hero-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    padding: 0.45rem 0.9rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+.hero-link:hover {
+    color: var(--color-accent-light);
+    border-color: var(--color-accent);
+    background: var(--color-surface);
+}
+
+/* =============================================
+   ANIMATIONS
+   ============================================= */
+@keyframes fade-up {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0);    }
+}
+
+/* =============================================
+   RESPONSIVE
+   ============================================= */
+@media (max-width: 768px) {
+
+    .hero-inner { padding-block: 3rem; }
+}

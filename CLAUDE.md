@@ -18,7 +18,9 @@ This file is excluded from the deployment (`.vercelignore`) but versioned on Git
 ## Site layout
 
 - Vanilla HTML/CSS/JS, no build step. Pages at the root (`index.html`, `rendez-vous.html`, `sport.html`, …),
-  shared navigation and footer in `js/layout.js`, styles in `css/style.css`.
+  shared navigation and footer in `js/layout.js`. Styles: `css/fonts.css` and `css/base.css` (variables,
+  shared components) on every page, then the page's own file (`home`, `sport` for sport and run detail,
+  `cinema`, `publications`, `rendez-vous`, `article` for legal and long-form pages).
 - `api/*.js`: Vercel serverless functions for the sport and cinema pages only (keys in Vercel env, see `.env.example`).
 - Local dev: `node --env-file=.env scripts/dev-server.js`; it sends `vercel.json`'s headers, and
   `CSP_REPORT=1` (or `only`, not enforced) logs Content-Security-Policy violations.
