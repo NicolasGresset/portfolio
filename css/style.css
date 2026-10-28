@@ -1337,7 +1337,7 @@ a.activity-card { color: inherit; }
 .location-button--ghost { border-color: transparent; color: var(--color-text-muted); justify-self: end; }
 
 .location-categories {
-    padding: 1rem 0 0;
+    padding: 1rem 0;
     border: none;
     border-top: 1px solid var(--color-border);
 }
@@ -1416,6 +1416,9 @@ a.activity-card { color: inherit; }
     height: 440px;
     border-radius: 6px;
     border: 1px solid var(--color-border);
+    /* Own stacking context: Leaflet's panes and controls (z-index 400 to 1000) stay inside the
+       map instead of covering the dropdown lists and the fixed navigation */
+    isolation: isolate;
 }
 
 .location-swatch {
