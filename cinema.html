@@ -51,14 +51,23 @@
         </div>
     </header>
 
-    <!-- ======= LETTERBOXD EMBED ======= -->
+    <!-- ======= LETTERBOXD DIARY ======= -->
     <main>
         <div class="container" style="padding-bottom: 5rem;">
-            <div class="letterboxd-wrap">
-                <iframe title="Letterboxd Diary" src="https://lb-embed-content.bokonon.dev?username=nicogresset"
-                    loading="lazy" allowfullscreen>
-                </iframe>
+            <section class="chart-card" aria-labelledby="monthly-films-title">
+                <div class="chart-header">
+                    <h2 class="chart-title" id="monthly-films-title">Films vus par mois</h2>
+                </div>
+                <div class="chart-plot" id="monthly-films-chart">
+                    <p class="activities-status">Chargement…</p>
+                </div>
+            </section>
+
+            <h2 class="section-label" style="margin: 3rem 0 1.25rem;">// films vus récemment</h2>
+            <div class="films-list" id="films-list">
+                <p class="activities-status">Chargement des films…</p>
             </div>
+            <button class="films-more" id="films-more" type="button" hidden>afficher plus</button>
         </div>
     </main>
 
@@ -71,6 +80,8 @@
     </footer>
 
     <script src="js/nav.js"></script>
+    <script src="js/cinema.js"></script>
+    <script src="js/monthly-films.js"></script>
 </body>
 
 </html>
