@@ -524,6 +524,23 @@ img { max-width: 100%; display: block; }
     color: var(--color-text-primary);
 }
 
+.page-header-intro {
+    margin-top: 0.75rem;
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    font-weight: 300;
+    color: var(--color-text-muted);
+}
+.page-header-intro a {
+    color: var(--color-accent);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+}
+
+/* Main content of an inner page, and the headings between its blocks */
+.page-main { padding-bottom: 5rem; }
+.section-label--spaced { margin: 3rem 0 1.25rem; }
+
 /* =============================================
    TAG FILTERS (projects page)
    ============================================= */
@@ -919,6 +936,7 @@ a.activity-card { color: inherit; }
 }
 
 .activity-stats--wide { grid-template-columns: repeat(4, 1fr); }
+.activity-charts { margin-top: 2rem; }
 
 .chart-readout {
     font-family: var(--font-mono);
@@ -1155,13 +1173,7 @@ a.activity-card { color: inherit; }
 .location-keys-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
 
 .page-header--compact { padding: calc(var(--nav-height) + 2rem) 0 1.5rem; }
-.page-header-intro {
-    margin-top: 0.5rem;
-    font-family: var(--font-sans);
-    font-size: 0.9rem;
-    font-weight: 300;
-    color: var(--color-text-muted);
-}
+.page-header--compact .page-header-intro { margin-top: 0.5rem; }
 
 /* Sections are flex items so that the results can come before the map on phones */
 .location-layout { display: flex; flex-direction: column; }
