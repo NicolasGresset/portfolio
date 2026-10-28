@@ -1636,6 +1636,8 @@ a.activity-card { color: inherit; }
     font-size: 0.75rem;
     color: var(--color-text-muted);
 }
+.footer-text a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.footer-text a:hover { color: var(--color-accent); }
 
 /* =============================================
    ANIMATIONS

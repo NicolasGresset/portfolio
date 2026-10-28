@@ -22,7 +22,8 @@
         footer.innerHTML = `
             <div class="footer-inner">
                 <span class="footer-text">© ${new Date().getFullYear()} Nicolas Gresset-Bourgeois</span>
-                <span class="footer-text">Toulouse, France</span>
+                <span class="footer-text">Toulouse, France
+                    &middot; <a href="${new URL('legal.html', root)}">mentions légales et confidentialité</a></span>
             </div>`;
     }
 
