@@ -66,8 +66,8 @@ flowchart LR
     classDef user fill:#F1F5F9,stroke:#7A90AA,color:#0C1A2E
 
     TYPE["User types<br/>in an address field"]:::user
-    TYPE -->|">= 2 chars, instant"| LOCAL["Local search: typed words<br/>(accents / case ignored, split on apostrophes)<br/>against name, aliases, former names,<br/>category label + synonyms, city;<br/>stop words optional, every other word required;<br/>linear scan, ~3 ms for 17,400 places"]:::algo
-    LOCAL --> JSON[("pois-toulouse.json<br/>loaded on first focus,<br/>words precomputed per field")]:::local
+    TYPE -->|">= 2 chars, instant"| LOCAL["Local search: typed words<br/>(accents / case ignored, split on apostrophes)<br/>against name, aliases, former names,<br/>category label + synonyms, city;<br/>stop words optional, every other word required;<br/>sorted word index: only the places of the<br/>most selective word are scored (all if it<br/>matches > 25 %), ~0.4 ms on a PC"]:::algo
+    LOCAL --> JSON[("pois-toulouse.json<br/>loaded on first focus; words per field<br/>and sorted word index built then, ~16 ms")]:::local
     LOCAL --> RANK["Rank: score rounded down,<br/>then distance to the located participants<br/>(Capitole if none), then metro > others > bus,<br/>then shortest name; max 5"]:::algo
     TYPE -->|">= 3 chars, 250 ms debounce"| COMPLETION[("Géoplateforme completion<br/>addresses + IGN points of interest,<br/>Haute-Garonne only, max 6")]:::api
     RANK --> LIST["Suggestions:<br/>local places first, then addresses"]
@@ -88,6 +88,13 @@ Score of a place (constants at the top of the search section of `main.js`, start
 - + 2 when the name starts with the whole query, + 1 when every required word matches in the name;
 - stop words (le, la, les, l, de, du, des, d, au, aux) add their match but may match nothing,
   unless the query has only stop words.
+
+Sorted word index: every distinct word of every field (~11,300) with the places that have it,
+built in the browser right after the data file. Shipping it precomputed would add ~100 KB
+(brotli) to download, slower than building it below ~16 Mbit/s. A typed word finds its places by
+binary search; only the places of the most selective required word are scored. Same results as
+a scan of every place (checked on 830 queries); ~0.4 ms per keystroke on average on a PC instead
+of ~3 ms, and never slower: a very common prefix (one letter, "to" for Toulouse) falls back to the scan.
 
 ## 3. Computation (engine.js)
 

@@ -283,6 +283,12 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
     const categoryRank = category => (category === 'metro' ? 0 : category === 'bus' ? 2 : 1);
     // [{ place, rank, name (normalized words joined), nameLength, fields: [{ field, weight, words }] }]
     let placeIndex = null;
+    // Sorted word index, built in the browser right after the data file (~16 ms on a PC; shipping it
+    // would add ~100 KB to download): every distinct word of every field, sorted, and for each the
+    // placeIndex positions of the places that have it. A typed word then finds its places with a
+    // binary search instead of a scan of every place
+    let indexWords = null;    // sorted distinct words
+    let indexPostings = null; // indexPostings[i]: placeIndex positions of the places with indexWords[i]
 
     const placeAddress = p => [p.street, [p.postcode, p.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
 
@@ -299,7 +305,71 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
                 ].filter(f => f.words.length).map(f => ({ ...f, weight: SEARCH_WEIGHTS[f.field] }));
                 return { place: p, rank: categoryRank(p.category), name: nameWords.join(' '), nameLength: p.name.length, fields };
             });
+            if (!indexWords) buildWordIndex();
         }).catch(err => console.error(err));
+    }
+
+    function buildWordIndex() {
+        const postings = new Map();
+        placeIndex.forEach((entry, i) => {
+            new Set(entry.fields.flatMap(f => f.words)).forEach(w => {
+                const list = postings.get(w);
+                if (list) list.push(i);
+                else postings.set(w, [i]);
+            });
+        });
+        indexWords = [...postings.keys()].sort();
+        indexPostings = indexWords.map(w => postings.get(w));
+    }
+
+    // Position of the first indexed word >= word
+    function lowerBound(word) {
+        let low = 0;
+        let high = indexWords.length;
+        while (low < high) {
+            const mid = (low + high) >> 1;
+            if (indexWords[mid] < word) low = mid + 1;
+            else high = mid;
+        }
+        return low;
+    }
+
+    // Indexed words matching token (starting with it, or equal to its abbreviation's word):
+    // { positions in indexWords, size: number of places listed, duplicates included }, or null as
+    // soon as more than limit places are listed
+    function indexRange(token, limit) {
+        const positions = [];
+        let size = 0;
+        const add = i => {
+            positions.push(i);
+            size += indexPostings[i].length;
+            return size <= limit;
+        };
+        for (let i = lowerBound(token); i < indexWords.length && indexWords[i].startsWith(token); i++) {
+            if (!add(i)) return null;
+        }
+        const expanded = ABBREVIATIONS[token];
+        if (expanded && !expanded.startsWith(token)) {
+            const i = lowerBound(expanded);
+            if (indexWords[i] === expanded && !add(i)) return null;
+        }
+        return { positions, size };
+    }
+
+    // Places to score: those matching the most selective required word (scorePlace checks the
+    // others), in placeIndex order; every place when even that word is very common ("to" matches
+    // the city Toulouse): building that set would cost more than a scan
+    const SCAN_RATIO = 0.25;
+    function candidatePlaces(tokens, required) {
+        let best = null;
+        tokens.forEach((token, i) => {
+            const range = required[i] && indexRange(token, best ? best.size : placeIndex.length * SCAN_RATIO);
+            if (range) best = range;
+        });
+        if (!best) return placeIndex;
+        const found = new Set();
+        best.positions.forEach(i => indexPostings[i].forEach(j => found.add(j)));
+        return [...found].sort((a, b) => a - b).map(j => placeIndex[j]);
     }
 
     // Best match of one typed word in a place: { score, inName }
@@ -344,7 +414,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         const cosLat = Math.cos(origin.lat * Math.PI / 180);
         const distance = p => (p.lat - origin.lat) ** 2 + ((p.lon - origin.lon) * cosLat) ** 2;
         const found = [];
-        for (const entry of placeIndex) {
+        for (const entry of candidatePlaces(tokens, required)) {
             const score = scorePlace(entry, tokens, required);
             if (score != null) found.push({ entry, score: Math.floor(score), distance: distance(entry.place) });
         }

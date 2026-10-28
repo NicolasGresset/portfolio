@@ -41,16 +41,15 @@ Full pipeline: `docs/location-pipeline.md`.
   > …). Rules and fields: `docs/location-pipeline.md` § 6. Rebuilt from scratch by
   `scripts/regenerate-places.sh` (download + osmium + `scripts/build-places.js`; output reproducible). ~3.1 MB raw, ~325 KB brotli, loaded on first address focus.
 - Local search: scored over name, aliases, oldNames, category label + synonyms, city; weights and bonuses
-  are constants in `main.js` (`SEARCH_WEIGHTS`…), doc § 2. Linear scan, ~3 ms per keystroke on a PC.
+  are constants in `main.js` (`SEARCH_WEIGHTS`…), doc § 2. Sorted word index built in the browser after
+  loading (~16 ms), ~0.4 ms per keystroke on a PC (scan fallback for very common prefixes).
 - Declined by the user: Photon, a service worker, Tisséo API (key refused), Strasbourg/CTS.
 
 ## Open topics (update when they move)
 
 - Local search: scoring implemented 2026-10-28 with starting weights; the user tunes them after testing.
-  Sorted word index prototyped (11,300 distinct words, 94,000 pairs, identical results): from 2 letters,
-  2–5 ms -> 0.01–3.5 ms per keystroke on a PC. Built in the browser (Map + sort of distinct words):
-  ~16 ms on a PC; shipped precomputed: +103 KB brotli (+0.5 s on 1.6 Mbit/s 3G) and 3 ms to parse,
-  so building it in the browser wins below ~16 Mbit/s. Waiting for the user's call. At equal rounded score, distance wins over
+  Sorted index: built in the browser on purpose (shipping it: +103 KB brotli, slower below ~16 Mbit/s).
+  Not yet measured on the user's phone (Galaxy A33). At equal rounded score, distance wins over
   category ("jean jau" shows a hairdresser before the metro station).
 - Possibly more candidate categories (pub, biergarten, café): one line in `CATEGORIES`, user's call.
 - Transitous is the slow step: (A) cache and pruning, or (C) local Connection Scan Algorithm on Tisséo
