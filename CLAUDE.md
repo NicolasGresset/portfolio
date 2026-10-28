@@ -13,7 +13,6 @@ This file is excluded from the deployment (`.vercelignore`) but versioned on Git
 - Keep `docs/location-pipeline.md` (Mermaid diagrams, API calls, data sources) up to date with every
   change to the location tool.
 - Keep API usage conservative.
-- Do not touch the Letterboxd (cinema) and Strava/intervals.icu (sport) pages unless asked.
 
 ## Site layout
 
@@ -42,7 +41,11 @@ Full pipeline: `docs/location-pipeline.md`.
 ## Open topics (update when they move)
 
 - Search for companies and shops (e.g. "CLS Ramonville" finds nothing today). Options: OSM `office=*` /
-  `shop=*` in the local file (user agrees to extend the file beyond candidates; counts being measured),
-  or the government "Recherche d'entreprises" API (no key, CORS OK, finds CLS with a full name).
+  `shop=*` in the local file (user agrees to extend the file beyond candidates), or the government
+  "Recherche d'entreprises" API (no key, CORS OK, finds CLS with a full name).
+  Measured 2026-10-28 in the Tisséo box (named features): office 1,982 (CLS present, `short_name=CLS`),
+  shop 6,483, craft 275, useful amenities (schools, pharmacies, banks, cafés…) ~4–5k. Only ~30 % carry an
+  OSM address; the rest needs the bulk reverse geocoder. All of it adds ~1.3 MB raw / ~200–270 KB gzip.
+  Dedupe must use name + distance (chains share names); one company can be a node plus several buildings.
 - Transitous is the slow step: (A) cache and pruning, or (C) local Connection Scan Algorithm on Tisséo
   GTFS (~2.6 MB/day of connections, estimated 600–900 lines). Waiting for the user's decision.
