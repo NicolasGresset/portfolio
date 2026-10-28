@@ -2,7 +2,7 @@
 
 How the meeting point finder (`rendez-vous.html`, page called "Rendez-vous"; code in `js/location/`) turns participants into a
 chosen place. Everything runs in the browser: Vercel only serves static files, and the
-only key (openrouteservice) is the user's own, kept in `localStorage`.
+keys (openrouteservice, required; Tisséo, optional) are the user's own, kept in `localStorage`.
 
 The diagrams are [Mermaid](https://mermaid.js.org/) code: GitHub renders them, and any
 Mermaid editor (e.g. https://mermaid.live) can display or export them.
@@ -127,10 +127,12 @@ flowchart TB
         MATRIX --> PARK
     end
 
-    subgraph TRANSIT["Transit"]
-        PLAN[("Transitous /api/v6/plan<br/>1 call per transit participant x candidate,<br/>3 at a time")]:::api
-        WINDOW["arriveBy = end of slot;<br/>keep journeys arriving within the slot,<br/>the latest departure wins;<br/>time = journey only, walking included"]:::algo
+    subgraph TRANSIT["Transit (engine picked in the page)"]
+        PLAN[("Transitous /api/v6/plan (default)<br/>1 call per transit participant x candidate,<br/>3 at a time; arriveBy = end of slot")]:::api
+        TISSEO[("Tisséo /v2/journeys.xml (user's key)<br/>2 calls per participant x candidate, 6 at a time:<br/>4 journeys leaving 1 h before the end of the slot,<br/>then 4 leaving (shortest travel time + 10 min) before it")]:::api
+        WINDOW["keep journeys arriving within the slot,<br/>the latest departure wins;<br/>time = journey only, walking included"]:::algo
         PLAN --> WINDOW
+        TISSEO --> WINDOW
     end
 
     TIMES --> STREET
@@ -143,7 +145,7 @@ flowchart TB
 
     BEST --> ROUTES["Paths to the chosen place"]
     ROUTES --> DIRECTIONS[("openrouteservice directions<br/>1 call per walk / bike / car participant")]:::api
-    ROUTES --> LEGS["Transit: legs of the Transitous journey<br/>already fetched (lines, direction, stops)"]:::local
+    ROUTES --> LEGS["Transit: legs of the journey already fetched<br/>(lines, direction; stops count with Transitous only)"]:::local
 
     BEST -.->|"user picks another place<br/>(list or map)"| OTHER["Same details for that place:<br/>transit legs kept, ORS directions<br/>fetched once per place shown"]:::algo
 ```
@@ -160,7 +162,7 @@ sequenceDiagram
     participant B as Browser (engine.js)
     participant J as pois-toulouse.json
     participant ORS as openrouteservice
-    participant TR as Transitous
+    participant TR as Transitous or Tisséo
 
     U->>B: Trouver le lieu
     B->>J: candidates around the barycenter (local, no call)
@@ -169,8 +171,8 @@ sequenceDiagram
         B->>ORS: matrix x M (P x C durations each)
         ORS-->>B: durations + quota left
     and transit
-        loop T x C journeys, 3 at a time
-            B->>TR: plan (arrive by end of slot)
+        loop T x C journeys, 3 at a time (Tisséo: 6, 2 calls each)
+            B->>TR: journeys arriving by the end of the slot
             TR-->>B: itineraries
         end
     end
@@ -191,9 +193,15 @@ sequenceDiagram
 | openrouteservice matrix | `M` ≤ 3 | 50 / day (free plan) |
 | openrouteservice directions | ≤ `P` for the chosen place, + ≤ `P` per other place shown | 200 / day (free plan) |
 | Transitous plan | `T` × `C` ≤ 40 | > 720 / 24 h: coordinate with Transitous |
+| Tisséo journeys (instead of Transitous) | 2 × `T` × `C` ≤ 80 | per key, monitored by Tisséo; paid beyond thresholds if they ever set some |
 | Géoplateforme completion | 1 per pause while typing (≥ 3 chars) | none stated |
 | Géoplateforme reverse | 1 per "ma position actuelle" | none stated |
 | Local data | 0 (one static file, loaded once) | — |
+
+Tisséo API notes (checked 2026-10-28): CORS headers only on XML answers (none on JSON), hence
+`journeys.xml` read with `DOMParser`; a refused key answers 403 without CORS headers, so the
+browser only sees a network error; no arrival-time search, hence the two calls; Tisséo network
+only (no TER, no liO coaches); it gives no count of stops travelled.
 
 ## 5. Data sources and licences
 
@@ -203,6 +211,7 @@ sequenceDiagram
 | Metro stations, bus stops | Tisséo GTFS, 2026-10-28 | ODbL |
 | Place addresses | OpenStreetMap, else IGN Géoplateforme (Base Adresse Nationale), 2026-10-28 | ODbL / Licence Ouverte |
 | Transit journeys | Transitous (networks' open GTFS) | open-source, non-commercial, light use |
+| Transit journeys (optional) | Tisséo API v2, with the visitor's own key | ODbL; a key in a web page is accepted by Tisséo (developer documentation § 2.7) |
 | Walk, bike, car | openrouteservice | free plan, user's own key |
 | Map tiles | OpenStreetMap | tile usage policy |
 

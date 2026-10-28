@@ -9,8 +9,16 @@
 
 import { durationMatrix, routePath } from './ors.js';
 import { transitTrip, forEachLimited } from './transitous.js';
+import { tisseoTrip } from './tisseo.js';
 
 const ORS_MODES = ['walk', 'bike', 'car'];
+// Transit engines: journey function (same contract, counting its calls in calls[name]) and
+// journeys computed in parallel. Transitous slows down beyond 3; Tisséo answered 6 in parallel
+// without slowing down (2026-10-28)
+const TRANSIT_ENGINES = {
+    transitous: { trip: (keys, onCall, ...args) => (onCall(), transitTrip(...args)), parallel: 3 },
+    tisseo:     { trip: (keys, onCall, ...args) => tisseoTrip(keys.tisseo, onCall, ...args), parallel: 6 },
+};
 const SLOT_MIN = 15;
 const CAR_PARKING_S = 5 * 60;      // fixed time to park, added to every car trip
 const RADIUS_START_M = 1000;
@@ -102,9 +110,10 @@ function fastest(modeTimes) {
 }
 
 // participants: [{ name, lat, lon, modes }], slot: "HH:MM",
-// categories: keys of CATEGORIES (1 to 3), keys: { ors },
-// data: from loadData(), calls: external API call counters, updated as calls are made
-export async function evaluate({ participants, slot, categories }, keys, data, calls, emit) {
+// categories: keys of CATEGORIES (1 to 3), transitEngine: key of TRANSIT_ENGINES,
+// keys: { ors, tisseo }, data: from loadData(),
+// calls: external API call counters, updated as calls are made
+export async function evaluate({ participants, slot, categories, transitEngine = 'transitous' }, keys, data, calls, emit) {
     const date = todayInToulouse();
     const arriveFrom = `${date} ${slot}`;
     const arriveTo = addMinutes(arriveFrom, SLOT_MIN);
@@ -147,18 +156,20 @@ export async function evaluate({ participants, slot, categories }, keys, data, c
     }));
 
     // Every candidate keeps its journeys (legs, lines, times): choosing another place needs no new call
+    const engine = TRANSIT_ENGINES[transitEngine];
     let done = 0;
-    emit({ type: 'transit', done, total: transitPairs.length });
-    await forEachLimited(transitPairs, async ([i, j]) => {
+    emit({ type: 'transit', engine: transitEngine, done, total: transitPairs.length });
+    await forEachLimited(transitPairs, engine.parallel, async ([i, j]) => {
         try {
-            calls.transitous++;
-            const trip = await transitTrip(participants[i], candidates[j], arriveFrom, arriveTo);
+            const onCall = () => { calls[transitEngine]++; };
+            const trip = await engine.trip(keys, onCall, participants[i], candidates[j], arriveFrom, arriveTo);
             times[i][j].transit = trip == null ? { error: 'aucun trajet n\'arrive dans la plage' } : { seconds: trip.seconds, trip };
         } catch (err) {
             console.error(err);
-            times[i][j].transit = { error: 'erreur Transitous' };
+            times[i][j].transit = { error: `erreur ${transitEngine === 'tisseo' ? 'Tisséo' : 'Transitous'}` };
+            if (err.message.includes('clé Tisséo')) throw err; // every other pair would fail too
         }
-        emit({ type: 'transit', done: ++done, total: transitPairs.length });
+        emit({ type: 'transit', engine: transitEngine, done: ++done, total: transitPairs.length });
     });
 
     // Score = sum of each participant's fastest time; null when someone cannot reach the candidate

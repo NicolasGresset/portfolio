@@ -40,20 +40,25 @@
 
             <!-- ======= API KEYS (stored only in this browser) ======= -->
             <details class="chart-card location-keys" id="keys-panel">
-                <summary class="chart-title">Clé API</summary>
+                <summary class="chart-title">Clés API</summary>
                 <form class="location-keys-form" id="keys-form" autocomplete="off">
                     <p class="location-muted">
-                        Les calculs se font dans votre navigateur, avec votre propre clé openrouteservice.
-                        Elle est gardée uniquement dans ce navigateur et envoyée seulement à openrouteservice.
+                        Les calculs se font dans votre navigateur, avec vos propres clés. Elles sont gardées
+                        uniquement dans ce navigateur, et chacune n'est envoyée qu'à son service.
                     </p>
                     <label class="location-field">
                         <span>openrouteservice (obligatoire) &mdash;
                             <a href="https://openrouteservice.org/dev/#/signup" target="_blank" rel="noopener noreferrer">obtenir une clé ↗</a></span>
                         <input type="password" id="ors-key" spellcheck="false">
                     </label>
+                    <label class="location-field">
+                        <span>Tisséo (facultative : transports en commun calculés par l'API Tisséo) &mdash;
+                            <a href="https://data.toulouse-metropole.fr/explore/dataset/api-temps-reel-tisseo/" target="_blank" rel="noopener noreferrer">obtenir une clé ↗</a></span>
+                        <input type="password" id="tisseo-key" spellcheck="false">
+                    </label>
                     <div class="location-keys-actions">
                         <button type="submit" class="location-button location-button--primary">Enregistrer</button>
-                        <button type="button" class="location-button location-button--ghost" id="keys-clear">Effacer la clé</button>
+                        <button type="button" class="location-button location-button--ghost" id="keys-clear">Effacer les clés</button>
                     </div>
                     <p class="location-muted" id="keys-status" role="status"></p>
                 </form>
@@ -75,6 +80,15 @@
                         <label class="chip"><input type="checkbox" name="categories" value="bar" checked><span>bars</span></label>
                         <label class="chip"><input type="checkbox" name="categories" value="restaurant"><span>restaurants</span></label>
                     </div>
+                </fieldset>
+
+                <fieldset class="location-categories" id="transit-engine">
+                    <legend>Transports en commun calculés par</legend>
+                    <div class="chips">
+                        <label class="chip"><input type="radio" name="transit-engine" value="transitous" checked><span>Transitous</span></label>
+                        <label class="chip"><input type="radio" name="transit-engine" value="tisseo" disabled><span>Tisséo</span></label>
+                    </div>
+                    <p class="location-muted" id="transit-engine-hint"></p>
                 </fieldset>
 
                 <div class="location-submit">
@@ -119,7 +133,8 @@
                     Lieux : bars, restaurants, entreprises et commerces &copy; contributeurs OpenStreetMap, arrêts &copy; Tisséo (GTFS),
                     sous licence ODbL ; leurs adresses : IGN Géoplateforme.
                     Transports en commun : <a href="https://transitous.org" target="_blank" rel="noopener noreferrer">Transitous</a>
-                    (<a href="https://transitous.org/sources/" target="_blank" rel="noopener noreferrer">sources des données</a>).
+                    (<a href="https://transitous.org/sources/" target="_blank" rel="noopener noreferrer">sources des données</a>)
+                    ou API Tisséo.
                     Marche, vélo, voiture : openrouteservice. Adresses : IGN Géoplateforme.
                 </p>
                 <p class="location-sources location-muted">

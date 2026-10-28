@@ -28,9 +28,9 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         { id: 'center',     label: 'Barycentre des participants' },
         { id: 'candidates', label: 'Lieux candidats (extrait local OSM + GTFS Tisséo)' },
         { id: 'matrix',     label: 'Temps marche, vélo, voiture (openrouteservice)' },
-        { id: 'transit',    label: 'Temps en transports en commun (Transitous)' },
+        { id: 'transit',    label: 'Temps en transports en commun' },
         { id: 'result',     label: 'Sélection du lieu' },
-        { id: 'routes',     label: 'Tracés des itinéraires (openrouteservice directions, Transitous)' },
+        { id: 'routes',     label: 'Tracés des itinéraires (openrouteservice directions, trajets en transports en commun)' },
     ];
     // One color per participant (marker and path), none reused for candidates or the chosen place
     const PARTICIPANT_COLORS = ['#2563EB', '#9333EA', '#0D9488', '#DB2777', '#65A30D'];
@@ -69,14 +69,24 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
     const keysForm   = document.getElementById('keys-form');
     const keysStatus = document.getElementById('keys-status');
     const orsInput   = document.getElementById('ors-key');
+    const tisseoInput = document.getElementById('tisseo-key');
+    const tisseoEngine = form.querySelector('[name="transit-engine"][value="tisseo"]');
+    const engineHint = document.getElementById('transit-engine-hint');
+    const ENGINE_NAMES = { transitous: 'Transitous', tisseo: 'Tisséo' };
     let keys = loadKeys();
 
     function showKeys(message) {
         orsInput.value = keys.ors || '';
+        tisseoInput.value = keys.tisseo || '';
         keysPanel.open = !keys.ors;
-        keysStatus.textContent = message || (keys.ors
-            ? 'Clé openrouteservice enregistrée (dans ce navigateur uniquement).'
+        const saved = [keys.ors && 'openrouteservice', keys.tisseo && 'Tisséo'].filter(Boolean);
+        keysStatus.textContent = message || (saved.length
+            ? `Clé${saved.length > 1 ? 's' : ''} ${saved.join(' et ')} enregistrée${saved.length > 1 ? 's' : ''} (dans ce navigateur uniquement).`
             : 'Aucune clé enregistrée.');
+        // Tisséo needs the visitor's own key; without it, back to Transitous
+        tisseoEngine.disabled = !keys.tisseo;
+        if (!keys.tisseo && tisseoEngine.checked) form.querySelector('[name="transit-engine"][value="transitous"]').checked = true;
+        engineHint.textContent = keys.tisseo ? '' : 'Tisséo : saisissez votre clé dans « Clés API ».';
         form.querySelector('[type="submit"]').disabled = !keys.ors;
         banner.hidden = !!keys.ors;
         banner.textContent = 'Saisissez votre clé openrouteservice dans « Clé API » pour utiliser le service.';
@@ -84,18 +94,18 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
 
     keysForm.addEventListener('submit', e => {
         e.preventDefault();
-        const persisted = saveKeys({ ors: orsInput.value.trim() });
+        const persisted = saveKeys({ ors: orsInput.value.trim(), tisseo: tisseoInput.value.trim() });
         keys = loadKeys();
         showKeys(persisted ? null : 'Stockage local indisponible : clé gardée jusqu\'à la fermeture de la page.');
     });
     document.getElementById('keys-clear').addEventListener('click', () => {
         clearKeys();
         keys = {};
-        showKeys('Clé effacée de ce navigateur.');
+        showKeys('Clés effacées de ce navigateur.');
     });
 
     // ---- External API calls: last computation and whole session (since the page was loaded) ----
-    const session = { geocode: 0, orsMatrix: 0, orsDirections: 0, transitous: 0 };
+    const session = { geocode: 0, orsMatrix: 0, orsDirections: 0, transitous: 0, tisseo: 0 };
     let lastRun = null;   // calls of the last (or running) computation
     let running = false;  // lastRun is not yet added to session
     // { limit, remaining, reset } per openrouteservice service, from its last answer
@@ -116,7 +126,8 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         callsEl.innerHTML = row('Géocodage (Géoplateforme)', 'geocode')
             + row('openrouteservice matrix', 'orsMatrix', quota(orsQuota.matrix))
             + row('openrouteservice directions', 'orsDirections', quota(orsQuota.directions))
-            + row('Transitous', 'transitous', ' <span class="location-muted">(au-delà de 720/24 h, se coordonner avec Transitous)</span>');
+            + row('Transitous', 'transitous', ' <span class="location-muted">(au-delà de 720/24 h, se coordonner avec Transitous)</span>')
+            + row('Tisséo', 'tisseo', ' <span class="location-muted">(2 appels par trajet)</span>');
     }
     renderCalls();
 
@@ -890,7 +901,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
                 ${leg.headsign ? `direction ${escapeHtml(leg.headsign)}` : ''}
                 <span class="trip-step-detail">${escapeHtml(stopName(leg.from, ''))} ${formatClock(leg.departure)}
                     → ${escapeHtml(stopName(leg.to, ''))} ${formatClock(leg.arrival)}
-                    · ${leg.stops} arrêt${leg.stops > 1 ? 's' : ''}</span></li>`);
+                    ${leg.stops != null ? `· ${leg.stops} arrêt${leg.stops > 1 ? 's' : ''}` : ''}</span></li>`);
         });
         items.push(`<li class="trip-step trip-step--time">Arrivée ${formatClock(trip.arrival)}`
             + `${lines.length > 1 ? ` · ${lines.length - 1} correspondance${lines.length > 2 ? 's' : ''}` : ''}</li>`);
@@ -996,7 +1007,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             if (state.matrixModes.length) setStep('matrix', 'done');
             const usesTransit = participants.some(p => p.modes.includes('transit'));
             if (!usesTransit) setStep('transit', 'done', 'aucun participant concerné');
-            else setStep('transit', event.done === event.total ? 'done' : 'running', `${event.done}/${event.total} trajets`);
+            else setStep('transit', event.done === event.total ? 'done' : 'running', `${event.done}/${event.total} trajets (${ENGINE_NAMES[event.engine]})`);
             if (event.done === event.total) setStep('result', 'running');
             break;
         }
@@ -1031,8 +1042,9 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         }
     }
 
-    // Other place types make the displayed result stale
+    // Other place types or another transit engine make the displayed result stale
     document.getElementById('categories').addEventListener('change', clearResults);
+    document.getElementById('transit-engine').addEventListener('change', clearResults);
 
     form.addEventListener('submit', async e => {
         e.preventDefault();
@@ -1052,14 +1064,15 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         resetSteps();
         scrollToSection(document.getElementById('location-progress'));
         submit.disabled = true;
-        lastRun = { orsMatrix: 0, orsDirections: 0, transitous: 0 };
+        lastRun = { orsMatrix: 0, orsDirections: 0, transitous: 0, tisseo: 0 };
         running = true;
         renderCalls();
         const rows = participants.map(p => p.row);
         const state = {};
         try {
             const data = await getData();
-            const input = { slot: slotValue(), categories, participants: participants.map(({ row, ...p }) => p) };
+            const transitEngine = form.querySelector('[name="transit-engine"]:checked').value;
+            const input = { slot: slotValue(), categories, transitEngine, participants: participants.map(({ row, ...p }) => p) };
             // lastRun is updated by the engine as calls are made
             await evaluate(input, keys, data, lastRun, event => {
                 handleEvent(event, participants, rows, state);

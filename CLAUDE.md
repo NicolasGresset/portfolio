@@ -33,7 +33,7 @@ Full pipeline: `docs/location-pipeline.md`.
 
 - `main.js` UI, `engine.js` candidates and scoring, `ors.js` openrouteservice (matrix 50/day,
   directions 200/day), `transitous.js` public transport (Transitous `/plan`, max 3 parallel calls,
-  > 720 calls / 24 h needs coordination), `keys.js` localStorage.
+  > 720 calls / 24 h needs coordination) or `tisseo.js` (optional, visitor's key), `keys.js` localStorage.
 - Address search: local instant lookup in `data/pois-toulouse.json` (≥ 2 chars), then IGN Géoplateforme
   completion (≥ 3 chars, Haute-Garonne, addresses and IGN points of interest, no companies).
 - `data/pois-toulouse.json`: one list `places` (~17,400) with one `category` code each (OSM `key=value`
@@ -65,16 +65,14 @@ Full pipeline: `docs/location-pipeline.md`.
    a second round around the best area; with one's own one-to-many engine (Dijkstra, CSA / RAPTOR),
    every place could be scored exactly.
 
-Tisséo API (key obtained 2026-10-28, `TISSEO_API_KEY` in `.env`), measured that day: journeys work;
-no CORS header (unusable from the browser: needs a server-side proxy); departure time only (the
-arrival parameters tried are ignored; `number` + `firstDepartureDatetime` / `lastDepartureDatetime` give
-several journeys in one call, so arrive-by needs 1–2 calls per pair); 20 journeys in 2.0 s at 6 in
-parallel (median ~0.5 s, no throttling seen) vs 27.7 s for Transitous at 3 in parallel the same
-afternoon; Tisséo network only (no TER / liO coaches); 404 with an empty list when no journey.
-Its terms of use and quotas are still to be checked. No JSONP either (`callback` ignored) and the CORS
-preflight answers 401: a key typed in the page cannot reach Tisséo without a relay. Parked by the
-user (no own key exposed to bots); possible later: a stateless Vercel relay forwarding the visitor's
-own key (sent in a header, never stored or logged), Transitous kept when no Tisséo key is given.
+Tisséo API (key obtained 2026-10-28, `TISSEO_API_KEY` in `.env` for tests only): now an optional
+transit engine picked in the page (`js/location/tisseo.js`), called from the browser with the visitor's
+own key like openrouteservice (Tisséo accepts public keys, doc § 2.7). CORS headers only on XML answers,
+so `journeys.xml` + `DOMParser`; departure time only, so 2 calls per trip (4 journeys an hour before the
+end of the slot, then 4 leaving shortest travel time + 10 min before it); 6 in parallel. Measured: 20
+journeys in 2.0 s vs 27.7 s for Transitous at 3 in parallel; a full computation (2 participants, 8
+stations) in 3.9 s with 32 calls. Tisséo network only (no TER / liO); no count of stops travelled.
+Quotas: monitored per key, possibly paid beyond thresholds one day (doc § 2.3).
 
 ## Open topics (update when they move)
 

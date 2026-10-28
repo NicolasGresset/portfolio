@@ -7,7 +7,6 @@
 // are kept, and the one with the latest departure wins.
 
 const PLAN_URL = 'https://api.transitous.org/api/v6/plan';
-const MAX_PARALLEL = 3; // concurrent requests, to stay light on Transitous servers
 const TIMEOUT_MS = 15000;
 const MODE_NAMES = {
     SUBWAY: 'métro', TRAM: 'tram', BUS: 'bus', COACH: 'car', RAIL: 'train', REGIONAL_RAIL: 'TER',
@@ -106,11 +105,11 @@ export async function transitTrip(from, to, arriveFrom, arriveTo) {
     };
 }
 
-// Run fn on every item with limited concurrency
-export async function forEachLimited(items, fn) {
+// Run fn on every item, at most `parallel` at a time
+export async function forEachLimited(items, parallel, fn) {
     const queue = [...items];
     const worker = async () => {
         for (let item = queue.shift(); item; item = queue.shift()) await fn(item);
     };
-    await Promise.all(Array.from({ length: MAX_PARALLEL }, worker));
+    await Promise.all(Array.from({ length: parallel }, worker));
 }
