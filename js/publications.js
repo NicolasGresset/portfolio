@@ -3,6 +3,8 @@
 // The list element may set data-limit="3" to show only the most recent ones (home page)
 // and data-group-by-year to add a heading per year (publications page).
 
+import { escapeHtml } from './format.js';
+
 (function () {
     const list = document.getElementById('publications-list');
     if (!list) return;
@@ -33,10 +35,6 @@
         meta: 'Thèse en cours · Université de Toulouse · 2024–2027',
         url: 'https://theses.fr/s435161',
     };
-
-    const escapeHtml = str => String(str).replace(/[&<>"']/g, c => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    }[c]));
 
     const formatMonth = iso => new Date(`${iso.slice(0, 7)}-01T00:00:00Z`)
         .toLocaleDateString('fr-FR', { month: 'long', year: 'numeric', timeZone: 'UTC' });

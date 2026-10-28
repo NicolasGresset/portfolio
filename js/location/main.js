@@ -4,6 +4,7 @@
 
 import { loadData, evaluate, placeRoutes } from './engine.js';
 import { loadKeys, saveKeys, clearKeys } from './keys.js';
+import { escapeHtml } from '../format.js';
 
 (function () {
     const form = document.getElementById('location-form');
@@ -43,10 +44,6 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
     const banner  = document.getElementById('location-banner');
     const steps   = document.getElementById('progress-steps');
     const callsEl = document.getElementById('location-calls');
-
-    const escapeHtml = str => String(str).replace(/[&<>"']/g, c => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    }[c]));
 
     function formatDuration(seconds) {
         const minutes = Math.round(seconds / 60);

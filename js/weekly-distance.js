@@ -1,5 +1,7 @@
 // weekly-distance.js - Weekly running distance as stacked SVG columns (easy below, quality above), total on each cap
 
+import { sportData } from './sport.js';
+
 (function () {
     const plot  = document.getElementById('weekly-distance-chart');
     if (!plot) return;
@@ -94,7 +96,7 @@
     }
 
     // Loaded by sport.js
-    window.sportData
+    sportData
         .then(({ weeks }) => {
             render(weeks);
             let lastWidth = plot.clientWidth;

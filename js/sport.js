@@ -1,7 +1,9 @@
-// sport.js - Load /api/sport and render recent runs and rides
+// sport.js - Load /api/sport and render recent runs and rides (ES module)
 
-// Shared with weekly-distance.js, which is loaded after this script
-window.sportData = fetch('/api/sport')
+import { escapeHtml, formatDuration, activityStat as stat } from './format.js';
+
+// Shared with weekly-distance.js
+export const sportData = fetch('/api/sport')
     .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
 
 (function () {
@@ -10,24 +12,11 @@ window.sportData = fetch('/api/sport')
 
     const KIND_LABELS = { run: 'course', ride: 'vélo' };
 
-    const escapeHtml = str => str.replace(/[&<>"']/g, c => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    }[c]));
-
     const formatDate = iso => new Date(iso).toLocaleDateString('fr-FR', {
         day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
     });
 
     const formatDistance = meters => `${(meters / 1000).toFixed(1).replace('.', ',')} km`;
-
-    function formatDuration(seconds) {
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        const s = seconds % 60;
-        return h > 0
-            ? `${h}h${String(m).padStart(2, '0')}`
-            : `${m}:${String(s).padStart(2, '0')}`;
-    }
 
     // Runs: pace in min/km. Rides: speed in km/h.
     function formatPace(a) {
@@ -37,15 +26,9 @@ window.sportData = fetch('/api/sport')
         return `${Math.floor(secPerKm / 60)}:${String(secPerKm % 60).padStart(2, '0')} /km`;
     }
 
-    const stat = (label, value) => `
-        <div class="activity-stat">
-            <span class="activity-stat-label">${label}</span>
-            <span class="activity-stat-value">${value}</span>
-        </div>`;
-
     const renderStatus = msg => { grid.innerHTML = `<p class="activities-status">${msg}</p>`; };
 
-    window.sportData
+    sportData
         .then(({ activities }) => {
             if (!activities.length) return renderStatus('Aucune activité récente.');
             // Only runs have a detail page

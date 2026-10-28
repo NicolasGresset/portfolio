@@ -1,5 +1,7 @@
 // activity.js - Detail of one run: detected intervals, pace and HR charts sharing a distance axis
 
+import { escapeHtml, formatDuration, activityStat as stat } from './format.js';
+
 (function () {
     const id = new URLSearchParams(window.location.search).get('id');
     const $ = elId => document.getElementById(elId);
@@ -12,22 +14,11 @@
         warmup: 'échauffement', work: 'effort', recovery: 'récup', cooldown: 'retour au calme', steady: 'continu',
     };
 
-    const escapeHtml = str => str.replace(/[&<>"']/g, c => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    }[c]));
-
     const formatDate = iso => new Date(iso).toLocaleDateString('fr-FR', {
         weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
     });
 
     const formatKm = km => `${km.toFixed(km < 10 ? 2 : 1).replace('.', ',')} km`;
-
-    function formatDuration(seconds) {
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        const s = Math.round(seconds % 60);
-        return h > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
-    }
 
     // seconds per km -> 4'35
     const formatPace = sec => `${Math.floor(sec / 60)}'${String(Math.round(sec % 60)).padStart(2, '0')}`;
@@ -43,12 +34,6 @@
         if (parent) parent.appendChild(node);
         return node;
     }
-
-    const stat = (label, value) => `
-        <div class="activity-stat">
-            <span class="activity-stat-label">${label}</span>
-            <span class="activity-stat-value">${value}</span>
-        </div>`;
 
     function renderHeader(a) {
         document.title = `${a.name} — Nicolas Gresset-Bourgeois`;

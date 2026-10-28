@@ -1,5 +1,7 @@
 // monthly-films.js - Films watched per month as SVG columns, count on each cap
 
+import { cinemaData } from './cinema.js';
+
 (function () {
     const plot = document.getElementById('monthly-films-chart');
     if (!plot) return;
@@ -79,7 +81,7 @@
     }
 
     // Loaded by cinema.js
-    window.cinemaData
+    cinemaData
         .then(({ months }) => {
             if (!months.length) {
                 plot.innerHTML = '<p class="activities-status">Pas encore assez de films pour ce graphique.</p>';

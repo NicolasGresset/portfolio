@@ -1,8 +1,10 @@
 // cinema.js - Load /api/cinema and render the Letterboxd diary, reviews flagged with spoilers hidden until clicked.
 // Each card's director and main cast are filled in from /api/credits once shown.
 
-// Shared with monthly-films.js, which is loaded after this script
-window.cinemaData = fetch('/api/cinema')
+import { escapeHtml } from './format.js';
+
+// Shared with monthly-films.js
+export const cinemaData = fetch('/api/cinema')
     .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
 
 (function () {
@@ -12,10 +14,6 @@ window.cinemaData = fetch('/api/cinema')
 
     const FIRST_PAGE = 10;
     const NEXT_PAGE = 20;
-
-    const escapeHtml = str => str.replace(/[&<>"']/g, c => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    }[c]));
 
     const formatDate = iso => new Date(`${iso}T00:00:00Z`).toLocaleDateString('fr-FR', {
         day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
@@ -91,7 +89,7 @@ window.cinemaData = fetch('/api/cinema')
         button.remove();
     });
 
-    window.cinemaData
+    cinemaData
         .then(({ films }) => {
             if (!films.length) return renderStatus('Aucun film récent.');
             let shown = 0;
