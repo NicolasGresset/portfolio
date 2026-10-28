@@ -1,6 +1,7 @@
-// nav.js - Builds the shared navigation, mobile menu toggle and active link highlighting
+// layout.js - Builds the shared navigation (mobile menu toggle, active link highlighting) and footer
 //
-// Each page only holds an empty <nav class="nav"> placeholder; the links live here.
+// Each page only holds empty <nav class="nav"> and <footer class="footer"> placeholders; their
+// content lives here.
 
 (function () {
     const LINKS = [
@@ -15,6 +16,16 @@
 
     // Site root, resolved from this script's URL so pages in subfolders (blog/) work too
     const root = new URL('..', document.currentScript.src);
+
+    const COPYRIGHT_YEAR = 2026;
+    const footer = document.querySelector('.footer');
+    if (footer) {
+        footer.innerHTML = `
+            <div class="footer-inner">
+                <span class="footer-text">© ${COPYRIGHT_YEAR} Nicolas Gresset-Bourgeois</span>
+                <span class="footer-text">Toulouse, France</span>
+            </div>`;
+    }
 
     const nav = document.querySelector('.nav');
     if (!nav) return;

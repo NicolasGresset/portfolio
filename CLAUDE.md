@@ -18,7 +18,7 @@ This file is excluded from the deployment (`.vercelignore`) but versioned on Git
 ## Site layout
 
 - Vanilla HTML/CSS/JS, no build step. Pages at the root (`index.html`, `rendez-vous.html`, `sport.html`, …),
-  shared navigation in `js/nav.js`, styles in `css/style.css`.
+  shared navigation and footer in `js/layout.js`, styles in `css/style.css`.
 - `api/*.js`: Vercel serverless functions for the sport and cinema pages only (keys in Vercel env, see `.env.example`).
 - Local dev: `node --env-file=.env scripts/dev-server.js`.
 - Browser tests: Firefox is installed in WSL (`/snap/bin/firefox`) and can run headless (`--headless`,
