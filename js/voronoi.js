@@ -168,10 +168,12 @@
         }
     }
 
+    // ~60 fps, ~30 fps when the visitor asks for less motion (points then also move half as fast)
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     let lastTs = 0;
     function loop(ts) {
         requestAnimationFrame(loop);
-        if (ts - lastTs < 16) return; // target ~60 fps
+        if (ts - lastTs < (reducedMotion.matches ? 33 : 16)) return;
         lastTs = ts;
         update();
         draw();
