@@ -1,6 +1,6 @@
 # Location — processing pipeline
 
-How the meeting point finder (`location.html`, `js/location/`) turns participants into a
+How the meeting point finder (`rendez-vous.html`, page called "Rendez-vous"; code in `js/location/`) turns participants into a
 chosen place. Everything runs in the browser: Vercel only serves static files, and the
 only key (openrouteservice) is the user's own, kept in `localStorage`.
 
@@ -67,7 +67,7 @@ flowchart LR
 
     TYPE["User types<br/>in an address field"]:::user
     TYPE -->|">= 2 chars, instant"| LOCAL["Local search: typed words<br/>(accents / case ignored, split on apostrophes)<br/>against name, aliases, former names,<br/>category label + synonyms, city;<br/>stop words optional, every other word required;<br/>sorted word index: only the places of the<br/>most selective word are scored (all if it<br/>matches > 25 %), ~0.4 ms on a PC"]:::algo
-    LOCAL --> JSON[("pois-toulouse.json<br/>loaded on first focus; words per field<br/>and sorted word index built then, ~16 ms")]:::local
+    LOCAL --> JSON[("pois-toulouse.json<br/>loaded once the page is shown; words per field<br/>and sorted word index built then, ~16 ms")]:::local
     LOCAL --> RANK["Rank: score rounded down,<br/>then distance to the located participants<br/>(Capitole if none), then metro > others > bus,<br/>then shortest name; max 5"]:::algo
     TYPE -->|">= 3 chars, 250 ms debounce"| COMPLETION[("Géoplateforme completion<br/>addresses + IGN points of interest,<br/>Haute-Garonne only, max 6")]:::api
     RANK --> LIST["Suggestions:<br/>local places first, then addresses"]

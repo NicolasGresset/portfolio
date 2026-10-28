@@ -3,149 +3,16 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description"
-        content="Prototype de Nicolas Gresset-Bourgeois — trouver le point de rendez-vous qui minimise le temps de trajet d'un groupe à Toulouse.">
-    <title>Location — Nicolas Gresset-Bourgeois</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap"
-        rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-    <link rel="stylesheet" href="css/style.css">
+    <!-- The page was renamed: old links lead to the new one -->
+    <meta http-equiv="refresh" content="0; url=rendez-vous.html">
+    <link rel="canonical" href="rendez-vous.html">
+    <meta name="robots" content="noindex">
+    <title>Rendez-vous — Nicolas Gresset-Bourgeois</title>
+    <script>location.replace('rendez-vous.html' + location.search + location.hash);</script>
 </head>
 
 <body>
-
-    <!-- ======= NAVIGATION ======= -->
-    <nav class="nav" aria-label="Navigation principale"></nav>
-
-    <!-- ======= PAGE HEADER ======= -->
-    <header class="page-header page-header--compact">
-        <div class="container">
-            <p class="page-header-label">// prototype</p>
-            <h1 class="page-header-title">Location</h1>
-            <p class="page-header-intro">
-                Le point de rendez-vous qui minimise le temps de trajet total du groupe &mdash;
-                agglomération toulousaine uniquement.
-            </p>
-        </div>
-    </header>
-
-    <main>
-        <div class="container location-layout" style="padding-bottom: 5rem;">
-            <p class="location-banner" id="location-banner" hidden></p>
-
-            <!-- ======= API KEYS (stored only in this browser) ======= -->
-            <details class="chart-card location-keys" id="keys-panel">
-                <summary class="chart-title">Clé API</summary>
-                <form class="location-keys-form" id="keys-form" autocomplete="off">
-                    <p class="location-muted">
-                        Les calculs se font dans votre navigateur, avec votre propre clé openrouteservice.
-                        Elle est gardée uniquement dans ce navigateur et envoyée seulement à openrouteservice.
-                    </p>
-                    <label class="location-field">
-                        <span>openrouteservice (obligatoire) &mdash;
-                            <a href="https://openrouteservice.org/dev/#/signup" target="_blank" rel="noopener noreferrer">obtenir une clé ↗</a></span>
-                        <input type="password" id="ors-key" spellcheck="false">
-                    </label>
-                    <div class="location-keys-actions">
-                        <button type="submit" class="location-button location-button--primary">Enregistrer</button>
-                        <button type="button" class="location-button location-button--ghost" id="keys-clear">Effacer la clé</button>
-                    </div>
-                    <p class="location-muted" id="keys-status" role="status"></p>
-                </form>
-            </details>
-
-            <!-- ======= INPUTS ======= -->
-            <!-- autocomplete="off": Firefox would otherwise restore the previous checkbox states on reload -->
-            <form class="chart-card location-form" id="location-form" novalidate autocomplete="off">
-                <div class="chart-header">
-                    <h2 class="chart-title">Participants</h2>
-                    <button type="button" class="location-button" id="add-participant">+ ajouter</button>
-                </div>
-                <div id="participants"></div>
-
-                <fieldset class="location-categories" id="categories">
-                    <legend>Types de lieux</legend>
-                    <div class="chips">
-                        <label class="chip"><input type="checkbox" name="categories" value="station"><span>stations (métro, bus)</span></label>
-                        <label class="chip"><input type="checkbox" name="categories" value="bar" checked><span>bars</span></label>
-                        <label class="chip"><input type="checkbox" name="categories" value="restaurant"><span>restaurants</span></label>
-                    </div>
-                </fieldset>
-
-                <div class="location-submit">
-                    <!-- Custom list: a native <select> cannot limit how many ranges it shows -->
-                    <div class="location-field slot-field">
-                        <span id="slot-label">Arrivée entre</span>
-                        <button type="button" class="slot-button" id="slot" aria-haspopup="listbox"
-                            aria-expanded="false" aria-controls="slot-options" aria-labelledby="slot-label slot"></button>
-                        <ul class="slot-options" id="slot-options" role="listbox" aria-labelledby="slot-label"
-                            tabindex="-1" hidden></ul>
-                    </div>
-                    <button type="submit" class="location-button location-button--primary">Trouver le lieu</button>
-                </div>
-                <p class="activities-status" id="location-status" role="status" hidden></p>
-            </form>
-
-            <!-- ======= PROGRESS & API CALLS ======= -->
-            <section class="chart-card location-progress" id="location-progress" aria-labelledby="location-progress-title">
-                <div class="chart-header">
-                    <h2 class="chart-title" id="location-progress-title">Calcul</h2>
-                </div>
-                <ol class="progress-steps" id="progress-steps" aria-live="polite" hidden></ol>
-                <details class="location-calls-panel">
-                    <summary>Appels API (débogage)</summary>
-                    <dl class="location-calls" id="location-calls"></dl>
-                </details>
-            </section>
-
-            <!-- ======= MAP ======= -->
-            <section class="chart-card location-map-card" aria-labelledby="location-map-title">
-                <div class="chart-header">
-                    <h2 class="chart-title" id="location-map-title">Carte</h2>
-                    <ul class="chart-legend" aria-label="Légende">
-                        <li><span class="location-swatch location-swatch--participant"></span>participant</li>
-                        <li><span class="location-swatch location-swatch--center"></span>barycentre</li>
-                        <li><span class="location-swatch location-swatch--candidate"></span>candidat</li>
-                        <li><span class="location-swatch location-swatch--best"></span>lieu retenu</li>
-                    </ul>
-                </div>
-                <div class="location-map" id="location-map"></div>
-                <p class="location-sources location-muted">
-                    Lieux : bars, restaurants, entreprises et commerces &copy; contributeurs OpenStreetMap, arrêts &copy; Tisséo (GTFS),
-                    sous licence ODbL ; leurs adresses : IGN Géoplateforme.
-                    Transports en commun : <a href="https://transitous.org" target="_blank" rel="noopener noreferrer">Transitous</a>
-                    (<a href="https://transitous.org/sources/" target="_blank" rel="noopener noreferrer">sources des données</a>).
-                    Marche, vélo, voiture : openrouteservice. Adresses : IGN Géoplateforme.
-                </p>
-                <p class="location-sources location-muted">
-                    Code source <a href="https://github.com/NicolasGresset/portfolio" target="_blank" rel="noopener noreferrer">sur GitHub</a>
-                    (licence MIT) &mdash; contact :
-                    <a href="mailto:nicolasgresset-bourgeois@orange.fr">nicolasgresset-bourgeois@orange.fr</a>
-                </p>
-            </section>
-
-            <!-- ======= RESULTS ======= -->
-            <section class="chart-card" id="location-results" aria-live="polite" hidden></section>
-        </div>
-    </main>
-
-    <!-- ======= FOOTER ======= -->
-    <footer class="footer">
-        <div class="footer-inner">
-            <span class="footer-text">© 2025 Nicolas Gresset-Bourgeois</span>
-            <span class="footer-text">Toulouse, France</span>
-        </div>
-    </footer>
-
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="js/nav.js"></script>
-    <script type="module" src="js/location/main.js"></script>
+    <p>Cette page s'appelle désormais <a href="rendez-vous.html">Rendez-vous</a>.</p>
 </body>
 
 </html>

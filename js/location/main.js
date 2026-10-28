@@ -245,8 +245,8 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         results.hidden = true;
     }
 
-    // Places (with their precomputed addresses) and category labels, loaded once per page: by
-    // the computation, or by the first address search
+    // Places (with their precomputed addresses) and category labels, loaded once per page, as
+    // soon as the page is shown (see loadPlaceIndex below)
     let dataPromise = null;
     let categoryLabels = {};
     const getData = () => {
@@ -430,6 +430,11 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             });
     }
 
+    // Load the places and build the search index as soon as the page is shown (after its own
+    // resources, so the map is not slowed down): the search is ready before the first address is typed
+    if (document.readyState === 'complete') loadPlaceIndex();
+    else window.addEventListener('load', loadPlaceIndex, { once: true });
+
     // Center of the participants already located, the Capitole (TOULOUSE) if none
     function searchOrigin() {
         const located = [...list.children].filter(r => r.dataset.lat);
@@ -535,8 +540,6 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             input.setAttribute('aria-expanded', 'true');
             active = -1;
         };
-
-        input.addEventListener('focus', loadPlaceIndex, { once: true });
 
         input.addEventListener('input', async () => {
             if (row.dataset.lat) setPosition(row, null);

@@ -16,13 +16,16 @@ This file is excluded from the deployment (`.vercelignore`) but versioned on Git
 
 ## Site layout
 
-- Vanilla HTML/CSS/JS, no build step. Pages at the root (`index.html`, `location.html`, `sport.html`, …),
+- Vanilla HTML/CSS/JS, no build step. Pages at the root (`index.html`, `rendez-vous.html`, `sport.html`, …),
   shared navigation in `js/nav.js`, styles in `css/style.css`.
 - `api/*.js`: Vercel serverless functions for the sport and cinema pages only (keys in Vercel env, see `.env.example`).
 - Local dev: `node --env-file=.env scripts/dev-server.js`.
 - `docs/` and `scripts/` are not deployed.
 
-## Location tool (`location.html`, `js/location/`)
+## Rendez-vous tool (`rendez-vous.html`, `js/location/`)
+
+Renamed from "Location" on 2026-10-28; code, CSS classes and docs keep the `location` name, and
+`location.html` only redirects to the new page (old links).
 
 Finds the meeting place minimizing the group's total travel time for an arrival within a 15 min slot,
 Toulouse area. Fully client-side; the user's own openrouteservice key is stored in localStorage only.
@@ -39,7 +42,7 @@ Full pipeline: `docs/location-pipeline.md`.
   for the address search. Address split into street / postcode / city (normalized at generation),
   `addrSrc`, `near`; `aliases` and `oldNames` apart. Same name within 300 m = one place (bar > restaurant
   > …). Rules and fields: `docs/location-pipeline.md` § 6. Rebuilt from scratch by
-  `scripts/regenerate-places.sh` (download + osmium + `scripts/build-places.js`; output reproducible). ~3.1 MB raw, ~325 KB brotli, loaded on first address focus.
+  `scripts/regenerate-places.sh` (download + osmium + `scripts/build-places.js`; output reproducible). ~3.1 MB raw, ~325 KB brotli, loaded once the page is shown (window load).
 - Local search: scored over name, aliases, oldNames, category label + synonyms, city; weights and bonuses
   are constants in `main.js` (`SEARCH_WEIGHTS`…), doc § 2. Sorted word index built in the browser after
   loading (~16 ms), ~0.4 ms per keystroke on a PC (scan fallback for very common prefixes).

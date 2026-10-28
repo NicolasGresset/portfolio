@@ -10,7 +10,7 @@
         { href: 'cinema.html',       label: 'cinéma' },
         { href: 'sport.html',        label: 'sport' },
         { href: 'publications.html', label: 'publications' },
-        { href: 'location.html',     label: 'location' },
+        { href: 'rendez-vous.html',  label: 'rendez-vous' },
     ];
 
     // Site root, resolved from this script's URL so pages in subfolders (blog/) work too
