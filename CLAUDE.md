@@ -54,6 +54,13 @@ Full pipeline: `docs/location-pipeline.md`.
   Sorted index: built in the browser on purpose (shipping it: +103 KB brotli, slower below ~16 Mbit/s).
   Not yet measured on the user's phone (Galaxy A33). At equal rounded score, distance wins over
   category ("jean jau" shows a hairdresser before the metro station).
+- Later, once the page's purpose is settled (personal service, demonstrator…): cache of
+  openrouteservice times and paths (they do not depend on the time of day; changing the slot
+  re-calls the matrix today), favourite addresses with custom names in the autocompletion.
+- Local street routing measured 2026-10-28 (not decided): the OSM extract's highways in the Tisséo box
+  give 199,000 graph nodes (intersections) and 268,000 edges; naive binary 4.5 MB, 1.9 MB brotli
+  (without the shapes needed to draw paths); one full walking Dijkstra 77 ms on a PC. Would replace the
+  openrouteservice matrix (50/day) by one Dijkstra per participant and mode.
 - Possibly more candidate categories (pub, biergarten, café): one line in `CATEGORIES`, user's call.
 - Transitous is the slow step: (A) cache and pruning, or (C) local Connection Scan Algorithm on Tisséo
   GTFS (~2.6 MB/day of connections, estimated 600–900 lines). Waiting for the user's decision.
