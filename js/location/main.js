@@ -17,6 +17,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
     const SUGGEST_DELAY_MS = 250;
     const ORS_MODES = ['walk', 'bike', 'car'];
     const MODE_LABELS = { walk: 'marche', bike: 'vélo', car: 'voiture', transit: 'transports en commun' };
+    const DEFAULT_MODES = ['walk', 'transit']; // checked for every new participant
     // Plurals of the candidate categories; every category's label comes with the data
     const CATEGORY_PLURALS = {
         'amenity=bar': 'bars', 'amenity=restaurant': 'restaurants', metro: 'stations de métro', bus: 'arrêts de bus',
@@ -623,7 +624,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             <button type="button" class="location-button" data-action="locate" tabindex="-1">ma position actuelle</button>
             <div class="participant-modes chips" role="group" aria-label="Modes de transport">
                 ${Object.entries(MODE_LABELS).map(([mode, label]) => `
-                    <label class="chip"><input type="checkbox" name="modes" value="${mode}" tabindex="-1"${mode === 'transit' ? ' checked' : ''}><span>${label}</span></label>
+                    <label class="chip"><input type="checkbox" name="modes" value="${mode}" tabindex="-1"${DEFAULT_MODES.includes(mode) ? ' checked' : ''}><span>${label}</span></label>
                 `).join('')}
             </div>
             <button type="button" class="location-button location-button--ghost" data-action="remove" tabindex="-1" aria-label="Retirer ce participant">retirer</button>`;

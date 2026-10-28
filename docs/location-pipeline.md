@@ -44,7 +44,7 @@ flowchart TB
     subgraph BROWSER["In the browser (js/location/)"]
         direction TB
         KEY[("ORS key<br/>localStorage")]:::user
-        INPUT["Participants (1 to 5): position + modes<br/>Arrival slot (15 min, today, Europe/Paris)<br/>Place types: stations / bars / restaurants"]:::user
+        INPUT["Participants (1 to 5): position + modes<br/>(walk and transit checked by default)<br/>Arrival slot (15 min, today, Europe/Paris)<br/>Place types: stations / bars / restaurants"]:::user
         SEARCH["2. Address search"]
         ENGINE["3. Computation (engine.js)"]
         RESULT["4. Result: chosen place,<br/>trip details, map paths"]
