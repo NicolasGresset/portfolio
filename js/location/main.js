@@ -251,20 +251,28 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         return dataPromise;
     };
 
-    // ---- Local place search: bars, restaurants and stations by name, instant and without
-    //      any call (each word typed must start a word of the name, accents and case ignored) ----
+    // ---- Local place search: candidates (bars, restaurants, stations) and search-only places
+    //      (companies, shops, schools\u2026) by name or short name, instant and without any call
+    //      (each word typed must start a word of the name, accents and case ignored) ----
     const normalize = str => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     const words = str => normalize(str).split(/[^a-z0-9]+/).filter(Boolean);
     // Usual abbreviations typed for words of place names
     const ABBREVIATIONS = { st: 'saint', ste: 'sainte', av: 'avenue', bd: 'boulevard', pl: 'place', r: 'rue' };
-    // At equal relevance: metro stations, then bars and restaurants, then the numerous bus stops
-    const KIND_RANK = { metro: 0, bar: 1, restaurant: 1, bus: 2 };
-    let placeIndex = null; // [{ place, name, words }]
+    // At equal relevance: metro stations, then bars, restaurants and other places, then the numerous bus stops
+    const KIND_RANK = { metro: 0, bar: 1, restaurant: 1, place: 1, bus: 2 };
+    let placeIndex = null; // [{ place, kind, label, name, words }]
 
     function loadPlaceIndex() {
         return getData().then(data => {
-            placeIndex = placeIndex || data.pois.filter(p => p.address)
-                .map(p => ({ place: p, name: normalize(p.name), words: words(p.name) }));
+            placeIndex = placeIndex || [
+                ...data.pois.filter(p => p.address).map(p => ({ place: p, kind: p.kind, label: KIND_LABELS[p.kind] })),
+                ...data.places.map(p => ({ place: p, kind: 'place', label: p.type })),
+            ].map(e => ({
+                ...e,
+                name:  normalize(e.place.name),
+                // Words of the name and of its short or former names, each typed word matched in any of them
+                words: [e.place.name, ...e.place.aliases || []].flatMap(words),
+            }));
         }).catch(err => console.error(err));
     }
 
@@ -277,14 +285,14 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             .filter(e => tokens.every(t => e.words.some(w => matches(w, t))))
             // Names starting with the query first, then by kind, then the shortest names
             .sort((a, b) => (b.name.startsWith(query) - a.name.startsWith(query))
-                || KIND_RANK[a.place.kind] - KIND_RANK[b.place.kind]
+                || KIND_RANK[a.kind] - KIND_RANK[b.kind]
                 || a.name.length - b.name.length)
             .slice(0, MAX_LOCAL_SUGGESTIONS)
-            .map(({ place: p }) => ({
+            .map(({ place: p, label }) => ({
                 label:   `${p.name} — ${p.near ? 'près de ' : ''}${p.address}`,
                 name:    p.name,
                 address: `${p.near ? 'près de ' : ''}${p.address}`,
-                kind:    KIND_LABELS[p.kind],
+                kind:    label,
                 lat:     p.lat,
                 lon:     p.lon,
             }));

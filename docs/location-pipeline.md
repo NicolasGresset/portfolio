@@ -27,18 +27,21 @@ flowchart TB
         direction TB
         GEOFABRIK[("Geofabrik<br/>OSM extract Midi-Pyrénées")]:::api
         OSMIUM["osmium: Tisséo area bbox,<br/>named bars and restaurants"]:::algo
+        OSMPLACES["scripts/build-search-places.js:<br/>named offices, shops, crafts, kept amenities;<br/>same name within 300 m merged;<br/>French type label, short / former names"]:::algo
         GTFS[("Tisséo GTFS<br/>data.toulouse-metropole.fr")]:::api
         STOPS["scripts/fetch-pois.js:<br/>stop areas, metro if a metro line stops,<br/>else bus; tram / cable car only dropped"]:::algo
         REVCSV[("IGN Géoplateforme<br/>reverse/csv, bulk")]:::api
-        ADDR["address of every place,<br/>'près de' beyond 30 m"]:::algo
+        ADDR["address of every place (search places:<br/>OSM address when it has a street),<br/>'près de' beyond 30 m"]:::algo
         GEOFABRIK --> OSMIUM
+        GEOFABRIK --> OSMPLACES
+        OSMPLACES --> REVCSV
         GTFS --> STOPS
         OSMIUM --> MERGE["merge + dedupe"]
         STOPS --> MERGE
         MERGE --> REVCSV --> ADDR
     end
 
-    ADDR --> DATA[("data/pois-toulouse.json<br/>bars, restaurants, metro, bus<br/>name, position, address")]:::local
+    ADDR --> DATA[("data/pois-toulouse.json<br/>pois: candidates (bars, restaurants, metro, bus)<br/>places: search only (~13,800 companies, shops…)<br/>name, position, address")]:::local
 
     subgraph BROWSER["In the browser (js/location/)"]
         direction TB
@@ -65,9 +68,9 @@ flowchart LR
     classDef user fill:#F1F5F9,stroke:#7A90AA,color:#0C1A2E
 
     TYPE["User types<br/>in an address field"]:::user
-    TYPE -->|">= 2 chars, instant"| LOCAL["Local name search<br/>accents / case ignored,<br/>each word typed starts a word of the name,<br/>st / av / bd... abbreviations"]:::algo
+    TYPE -->|">= 2 chars, instant"| LOCAL["Local name search<br/>accents / case ignored,<br/>each word typed starts a word of the name<br/>or of a short / former name,<br/>st / av / bd... abbreviations;<br/>linear scan, ~1 ms for 17,000 entries"]:::algo
     LOCAL --> JSON[("pois-toulouse.json<br/>loaded on first focus")]:::local
-    LOCAL --> RANK["Rank: name starts with query,<br/>then metro > bar, restaurant > bus,<br/>then shortest name; max 5"]:::algo
+    LOCAL --> RANK["Rank: name starts with query,<br/>then metro > bar, restaurant, other place > bus,<br/>then shortest name; max 5"]:::algo
     TYPE -->|">= 3 chars, 250 ms debounce"| COMPLETION[("Géoplateforme completion<br/>addresses + IGN points of interest,<br/>Haute-Garonne only, max 6")]:::api
     RANK --> LIST["Suggestions:<br/>local places first, then addresses"]
     COMPLETION --> LIST
@@ -182,8 +185,9 @@ sequenceDiagram
 | Data | Source | Licence / policy |
 |---|---|---|
 | Bars, restaurants | OpenStreetMap via Geofabrik, extract of 2026-10-26 | ODbL |
+| Search-only places (companies, shops, schools…) | OpenStreetMap via Geofabrik, extract of 2026-10-28 | ODbL |
 | Metro stations, bus stops | Tisséo GTFS, 2026-10-27 | ODbL |
-| Place addresses | IGN Géoplateforme (Base Adresse Nationale), 2026-10-27 | Licence Ouverte |
+| Place addresses | IGN Géoplateforme (Base Adresse Nationale), 2026-10-27 and 2026-10-28 (search places) | Licence Ouverte |
 | Transit journeys | Transitous (networks' open GTFS) | open-source, non-commercial, light use |
 | Walk, bike, car | openrouteservice | free plan, user's own key |
 | Map tiles | OpenStreetMap | tile usage policy |

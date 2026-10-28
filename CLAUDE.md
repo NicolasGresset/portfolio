@@ -36,16 +36,14 @@ Full pipeline: `docs/location-pipeline.md`.
 - `data/pois-toulouse.json`: bars and restaurants (OSM, Geofabrik Midi-Pyrénées extract + osmium),
   metro and bus stops (Tisséo GTFS), addresses precomputed with the Géoplateforme bulk reverse geocoder.
   Bounding box in `data/tisseo-area.json`. `scripts/fetch-pois.js` regenerates places, not addresses yet.
+- `data.places` (search only, never candidates): ~13,800 named OSM offices, shops, crafts and kept amenities
+  with a French type label and aliases (`short_name`…), built by `scripts/build-search-places.js` from an
+  osmium export (commands in its header). File: 2.3 MB raw, ~318 KB brotli, loaded on first address focus.
 - Declined by the user: Photon, a service worker, Tisséo API (key refused), Strasbourg/CTS.
 
 ## Open topics (update when they move)
 
-- Search for companies and shops (e.g. "CLS Ramonville" finds nothing today). Options: OSM `office=*` /
-  `shop=*` in the local file (user agrees to extend the file beyond candidates), or the government
-  "Recherche d'entreprises" API (no key, CORS OK, finds CLS with a full name).
-  Measured 2026-10-28 in the Tisséo box (named features): office 1,982 (CLS present, `short_name=CLS`),
-  shop 6,483, craft 275, useful amenities (schools, pharmacies, banks, cafés…) ~4–5k. Only ~30 % carry an
-  OSM address; the rest needs the bulk reverse geocoder. All of it adds ~1.3 MB raw / ~200–270 KB gzip.
-  Dedupe must use name + distance (chains share names); one company can be a node plus several buildings.
+- Local search ranking and matching (proposed 2026-10-28, waiting for the user's choice): index type label and city words, exact-word bonus, prefix index,
+  proximity ranking, typo tolerance.
 - Transitous is the slow step: (A) cache and pruning, or (C) local Connection Scan Algorithm on Tisséo
   GTFS (~2.6 MB/day of connections, estimated 600–900 lines). Waiting for the user's decision.
