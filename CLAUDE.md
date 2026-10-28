@@ -118,5 +118,12 @@ Quotas: monitored per key, possibly paid beyond thresholds one day (doc § 2.3).
 - Ideas for later (stated by the user, 2026-10-28):
   - Rendez-vous: pick a participant's address by clicking the map (the Géoplateforme reverse
     geocoding used by "ma position actuelle" would give its address; already allowed by the CSP).
-  - Factor `css/style.css` (~1,700 lines, judged too long).
   - Make sure the repository holds no dead code.
+- CSS refactored 2026-10-28 (dead rules removed, 7-step font size scale `--text-2xs`…`--text-2xl`,
+  color / radius variables, shared components in `base.css`, one file per page, mobile rules nested
+  in their rule with native CSS nesting, so browsers from 2023 on). Checked by comparing screenshots
+  and computed styles of every page, desktop and mobile, before and after each step.
+- Before publishing a blog article: the drafts in `_drafts/` load KaTeX, Plotly and Google Fonts from
+  CDNs and use inline scripts, all blocked by the CSP (and Google Fonts sends visitors' IPs to
+  Google); `projects.html` and `blog.html` also have inline scripts. Self-host or move them to files,
+  or extend the CSP, when they are written.
