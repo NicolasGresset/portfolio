@@ -6,6 +6,7 @@
 // Set LETTERBOXD_RSS_FILE to read a saved feed instead (local dev, e.g. data/cinema.xml).
 
 const fs = require('fs');
+const { rejectUnknownParams } = require('./_lib/query');
 
 const FEED_URL = 'https://letterboxd.com/nicogresset/rss/';
 
@@ -76,6 +77,7 @@ async function readFeed() {
 }
 
 module.exports = async (req, res) => {
+    if (rejectUnknownParams(req, res)) return;
     try {
         const xml = await readFeed();
         // Lists also show up in the feed, keep diary entries only

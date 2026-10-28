@@ -5,14 +5,17 @@
 
 const { detectIntervals, resample, smoothSpeed } = require('./_lib/detect-intervals');
 const { RUN_TYPES, intervalsGet, getStreams } = require('./_lib/intervals');
+const { rejectUnknownParams } = require('./_lib/query');
 
 const CHART_SMOOTH_HALF_WINDOW = 15; // s, pace on the chart is averaged over 31 s
 const CHART_BUCKET_S = 10;            // one chart point per 10 s
 const STOP_SPEED = 1.2;               // m/s, no pace is drawn below this (standing, slow walking)
 
 module.exports = async (req, res) => {
+    if (rejectUnknownParams(req, res, ['id'])) return;
     const id = req.query && req.query.id;
-    if (!/^i?\d+$/.test(id || '')) return res.status(400).json({ error: 'Invalid activity id' });
+    // No leading zero: one cache entry per activity
+    if (!/^i?[1-9]\d*$/.test(id || '')) return res.status(400).json({ error: 'Invalid activity id' });
 
     try {
         const [a, streams] = await Promise.all([intervalsGet(`/activity/${id}`), getStreams(id)]);

@@ -4,14 +4,18 @@
 // Credits never change, so each film is cached on Vercel's CDN for 180 days, under the 6 months
 // TMDB's terms of use allow (§ 1.C).
 
+const { rejectUnknownParams } = require('./_lib/query');
+
 const MAIN_CAST = 2;
 const CACHE_S = 180 * 86400;
 
 const person = ({ id, name }) => ({ id, name });
 
 module.exports = async (req, res) => {
+    if (rejectUnknownParams(req, res, ['id'])) return;
     const id = req.query.id;
-    if (!/^\d+$/.test(id || '')) {
+    // No leading zero: 550 and 0550 would be two cache entries for the same film
+    if (!/^[1-9]\d*$/.test(id || '')) {
         res.setHeader('Cache-Control', 'no-store');
         return res.status(400).json({ error: 'Missing or invalid id' });
     }

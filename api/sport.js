@@ -5,6 +5,7 @@
 // Each run is analyzed once for both, to stay under intervals.icu rate limit.
 
 const { RUN_TYPES, RIDE_TYPES, listActivities, analyzeRuns } = require('./_lib/intervals');
+const { rejectUnknownParams } = require('./_lib/query');
 
 const MAX_ACTIVITIES = 12;
 const WEEKS = 8;
@@ -18,6 +19,7 @@ function weekStart(day) {
 }
 
 module.exports = async (req, res) => {
+    if (rejectUnknownParams(req, res)) return;
     try {
         // One bucket per week, oldest first, ending with the current week
         const currentWeek = weekStart(new Date().toISOString().slice(0, 10));
