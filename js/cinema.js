@@ -18,8 +18,21 @@ window.cinemaData = fetch('/api/cinema')
     }[c]));
 
     const formatDate = iso => new Date(`${iso}T00:00:00Z`).toLocaleDateString('fr-FR', {
-        day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
+        day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
     });
+
+    // Lowercase particles stay with the surname: "Guillermo del Toro" -> "G. del Toro"
+    const PARTICLES = ['de', 'del', 'della', 'di', 'da', 'du', 'des', 'la', 'le', 'van', 'von', 'der', 'den', 'ten'];
+
+    // "Alejandro G. Iñárritu" -> "A. G. Iñárritu", "Jean-Pierre Jeunet" -> "J.-P. Jeunet"
+    function shortName(name) {
+        const words = name.split(' ');
+        let last = words.length - 1;
+        while (last > 1 && PARTICLES.includes(words[last - 1])) last--;
+        const initials = words.slice(0, last)
+            .map(w => w.split('-').map(part => `${[...part][0]}.`).join('-'));
+        return [...initials, ...words.slice(last)].join(' ');
+    }
 
     // 3.5 -> ★★★½, as on Letterboxd
     const formatRating = r => '★'.repeat(Math.floor(r)) + (r % 1 ? '½' : '');
@@ -39,27 +52,29 @@ window.cinemaData = fetch('/api/cinema')
             .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
             .then(({ directors, cast }) => {
                 const parts = [];
-                if (directors.length) parts.push(`de ${directors.join(', ')}`);
-                if (cast.length) parts.push(`avec ${cast.join(', ')}`);
+                if (directors.length) parts.push(`de ${directors.map(shortName).join(', ')}`);
+                if (cast.length) parts.push(`avec ${cast.map(shortName).join(', ')}`);
                 line.textContent = parts.join(' · ');
             })
             .catch(() => {});
     }
 
-    // Poster, header and rating on top, the review below across the whole card
+    // Poster and header (title and rating on one line, then date and credits), the review below across the whole card
     const renderFilm = f => `
         <article class="film-card">
             <a href="${escapeHtml(f.url)}" target="_blank" rel="noopener noreferrer" class="film-poster">
                 ${f.poster ? `<img src="${escapeHtml(f.poster)}" alt="Affiche de ${escapeHtml(f.title)}" loading="lazy">` : ''}
             </a>
             <div class="film-header">
-                <a href="${escapeHtml(f.url)}" target="_blank" rel="noopener noreferrer" class="film-title">
-                    ${escapeHtml(f.title)}${f.year ? ` <span class="film-year">${f.year}</span>` : ''}
-                </a>
+                <div class="film-title-line">
+                    <a href="${escapeHtml(f.url)}" target="_blank" rel="noopener noreferrer" class="film-title">
+                        ${escapeHtml(f.title)}${f.year ? `&nbsp;<span class="film-year">${f.year}</span>` : ''}
+                    </a>
+                    ${f.rating || f.liked ? `<p class="film-rating">${f.rating ? formatRating(f.rating) : ''}${f.liked ? ' <span class="film-like" aria-label="aimé">♥</span>' : ''}</p>` : ''}
+                </div>
                 <span class="film-date">${f.rewatch ? 'revu' : 'vu'} le ${formatDate(f.watched)}${f.viewings > 1 ? ` &middot; vu ${f.viewings} fois` : ''}</span>
                 ${f.tmdbId ? `<p class="film-credits" data-tmdb="${escapeHtml(f.tmdbId)}"></p>` : ''}
             </div>
-            ${f.rating || f.liked ? `<p class="film-rating">${f.rating ? formatRating(f.rating) : ''}${f.liked ? ' <span class="film-like" aria-label="aimé">♥</span>' : ''}</p>` : ''}
             ${f.review.length ? `<div class="film-text">${review(f)}</div>` : ''}
         </article>`;
 
