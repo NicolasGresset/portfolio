@@ -31,6 +31,7 @@
     const THESIS = {
         title: 'Étude des protocoles de communication pour les nanosatellites',
         meta: 'Thèse en cours · Université de Toulouse · 2024–2027',
+        url: 'https://theses.fr/s435161',
     };
 
     const escapeHtml = str => String(str).replace(/[&<>"']/g, c => ({
@@ -102,6 +103,7 @@
             <span class="tag">thèse</span>
             <h3 class="publication-title">${THESIS.title}</h3>
             <p class="publication-meta">${THESIS.meta}</p>
+            <div class="publication-links">${link(THESIS.url, 'theses.fr ↗')}</div>
         </article>`;
 
     // BibTeX is fetched on first opening, copied on demand
