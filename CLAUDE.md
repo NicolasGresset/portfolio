@@ -38,8 +38,8 @@ Full pipeline: `docs/location-pipeline.md`.
   Candidates: `amenity=bar`, `amenity=restaurant`, `metro`, `bus` (only they keep an `id`); the rest is
   for the address search. Address split into street / postcode / city (normalized at generation),
   `addrSrc`, `near`; `aliases` and `oldNames` apart. Same name within 300 m = one place (bar > restaurant
-  > …). Rules and fields: `docs/location-pipeline.md` § 6. Built by `scripts/build-places.js` (osmium
-  commands in its header). ~3.1 MB raw, ~325 KB brotli, loaded on first address focus.
+  > …). Rules and fields: `docs/location-pipeline.md` § 6. Rebuilt from scratch by
+  `scripts/regenerate-places.sh` (download + osmium + `scripts/build-places.js`; output reproducible). ~3.1 MB raw, ~325 KB brotli, loaded on first address focus.
 - Local search: scored over name, aliases, oldNames, category label + synonyms, city; weights and bonuses
   are constants in `main.js` (`SEARCH_WEIGHTS`…), doc § 2. Linear scan, ~3 ms per keystroke on a PC.
 - Declined by the user: Photon, a service worker, Tisséo API (key refused), Strasbourg/CTS.
@@ -47,8 +47,9 @@ Full pipeline: `docs/location-pipeline.md`.
 ## Open topics (update when they move)
 
 - Local search: scoring implemented 2026-10-28 with starting weights; the user tunes them after testing.
-  Ideas left: typo tolerance; a sorted word index if it gets slow on phones (measured: from ~0.6 ms
-  to ~0.01 ms per search on a PC, 22 ms to build). At equal rounded score, distance wins over
+  Ideas left: typo tolerance. Sorted word index prototyped (94,000 pairs, identical results): faster
+  from 2 letters (2–3 ms -> 0.01–1.5 ms on a PC) but +55 ms at first focus, more memory, more code,
+  harder typo tolerance; waiting for the user's call. At equal rounded score, distance wins over
   category ("jean jau" shows a hairdresser before the metro station).
 - Possibly more candidate categories (pub, biergarten, café): one line in `CATEGORIES`, user's call.
 - Transitous is the slow step: (A) cache and pruning, or (C) local Connection Scan Algorithm on Tisséo

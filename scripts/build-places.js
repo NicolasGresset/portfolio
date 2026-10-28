@@ -7,6 +7,9 @@
 // Each place has one category code (see CATEGORY RULES below and docs/location-pipeline.md),
 // the engine picks its candidates by code.
 //
+// To rebuild everything from scratch, run scripts/regenerate-places.sh: it downloads the extract,
+// runs osmium, then this script.
+//
 // OSM input: an osmium export of the Tisséo area (data/tisseo-area.json), made from the
 // Geofabrik Midi-Pyrénées extract:
 //   curl -LO https://download.geofabrik.de/europe/france/midi-pyrenees-latest.osm.pbf

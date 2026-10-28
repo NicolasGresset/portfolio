@@ -201,6 +201,10 @@ sequenceDiagram
 
 ## 6. Place categories
 
+To rebuild the file from scratch (OSM download, osmium, Tisséo GTFS, addresses, every
+post-processing step below): `scripts/regenerate-places.sh` (needs curl, osmium-tool, node,
+unzip; `--pbf` reuses an extract already downloaded). About 30 s plus the ~360 MB download.
+
 Every place of `data/pois-toulouse.json` has exactly one `category` code; the French label of
 each code is in the file's `categories` table. The code depends on where the place comes from
 (`scripts/build-places.js`, "CATEGORY RULES"):
