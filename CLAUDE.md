@@ -99,3 +99,14 @@ Quotas: monitored per key, possibly paid beyond thresholds one day (doc § 2.3).
 - Possibly more candidate categories (pub, biergarten, café): one line in `CATEGORIES`, user's call.
 - Transitous is the slow step: (A) cache and pruning, or (C) local Connection Scan Algorithm on Tisséo
   GTFS (~2.6 MB/day of connections, estimated 600–900 lines). Waiting for the user's decision.
+- Site audit 2026-10-28 (done: fonts self-hosted, query parameters refused on api/, /api/activity
+  limited to the owner's runs, TMDB cached 180 days, posters 300x450). Waiting for the user:
+  - Footer year: a constant in `js/layout.js`; following the last deployment needs a build step.
+  - /api/activity serves any of the owner's runs by id (also old or not listed ones), and
+    /api/credits any TMDB id: restrict to the ids of the cached /api/sport and /api/cinema?
+  - Vercel Firewall rate limit on /api/*; legal notice and privacy page (LCEN, GDPR art. 13);
+    Content-Security-Policy in `vercel.json`; ODbL notice for `data/pois-toulouse.json`.
+  - Transitous size (measured on 12 trips): `maxItineraries=5&detailedTransfers=false` halves the
+    answer, same best trip 11/12 (one +1 min); adding `timetableView=false` is ~8x lighter but
+    worse in 7/12 (up to +14 min: it drops faster trips arriving early). Shared 720/24 h counter
+    would need a server-side store or a proxy.
