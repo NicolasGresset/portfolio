@@ -17,12 +17,11 @@
     // Site root, resolved from this script's URL so pages in subfolders (blog/) work too
     const root = new URL('..', document.currentScript.src);
 
-    const COPYRIGHT_YEAR = 2026;
     const footer = document.querySelector('.footer');
     if (footer) {
         footer.innerHTML = `
             <div class="footer-inner">
-                <span class="footer-text">© ${COPYRIGHT_YEAR} Nicolas Gresset-Bourgeois</span>
+                <span class="footer-text">© ${new Date().getFullYear()} Nicolas Gresset-Bourgeois</span>
                 <span class="footer-text">Toulouse, France</span>
             </div>`;
     }
