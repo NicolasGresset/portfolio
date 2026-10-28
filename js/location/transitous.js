@@ -8,6 +8,11 @@
 // wins (at equal time, the latest departure).
 
 const PLAN_URL = 'https://api.transitous.org/api/v6/plan';
+// At most 5 journeys, without turn-by-turn detail of the walks between two lines: half the answer's
+// size (~200 KB instead of ~400 KB raw), the same best journey on 11 of 12 trips measured on
+// 2026-10-28 (one 1 min longer). timetableView=false would be 8x lighter but drops the faster
+// journeys arriving early (up to 14 min worse)
+const PLAN_OPTIONS = { maxItineraries: 5, detailedTransfers: false };
 const TIMEOUT_MS = 15000;
 const MODE_NAMES = {
     SUBWAY: 'métro', TRAM: 'tram', BUS: 'bus', COACH: 'car', RAIL: 'train', REGIONAL_RAIL: 'TER',
@@ -97,6 +102,7 @@ export async function transitTrip(from, to, arriveFrom, arriveTo) {
         toPlace:   `${to.lat},${to.lon}`,
         time:      parseParis(arriveTo).toISOString(),
         arriveBy:  'true',
+        ...PLAN_OPTIONS,
     });
     const res = await fetch(`${PLAN_URL}?${params}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
     if (res.status === 429) throw new Error('Transitous rate limit reached');

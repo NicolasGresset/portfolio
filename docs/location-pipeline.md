@@ -128,7 +128,7 @@ flowchart TB
     end
 
     subgraph TRANSIT["Transit (engine picked in the page)"]
-        PLAN[("Transitous /api/v6/plan (default)<br/>1 call per transit participant x candidate,<br/>3 at a time; arriveBy = end of slot")]:::api
+        PLAN[("Transitous /api/v6/plan (default)<br/>1 call per transit participant x candidate,<br/>3 at a time; arriveBy = end of slot;<br/>maxItineraries=5, detailedTransfers=false")]:::api
         TISSEO[("Tisséo /v2/journeys.xml (user's key)<br/>2 calls per participant x candidate, 6 at a time:<br/>4 journeys leaving 1 h before the end of the slot,<br/>then 4 leaving (shortest travel time + 10 min) before it")]:::api
         WINDOW["keep journeys arriving by the end of the slot;<br/>time = journey + wait until the slot starts<br/>when arriving early (walking included);<br/>shortest time wins, then latest departure"]:::algo
         RETRY["technical failure: 1 retry after 2 s;<br/>failing twice = journey failed,<br/>its candidate is 'incomplete'"]:::algo
@@ -199,6 +199,13 @@ sequenceDiagram
 | Géoplateforme completion | 1 per pause while typing (≥ 3 chars) | none stated |
 | Géoplateforme reverse | 1 per "ma position actuelle" | none stated |
 | Local data | 0 (one static file, loaded once) | — |
+
+Transitous answer size (measured 2026-10-28 on 12 trips, 18:00–18:15 slot): by default `/plan`
+returns up to ~14 journeys over 2 h with turn-by-turn walking steps, ~400 KB raw (~100 KB gzip) per
+call. `maxItineraries=5&detailedTransfers=false` halves it and kept the same best journey on 11/12
+trips (one 1 min longer); no field the page uses is lost (geometry, stops, lines, colors).
+`timetableView=false` would be ~8x lighter but returns only the latest-arriving journey, worse on
+7/12 trips (up to +14 min) since it drops faster journeys arriving early.
 
 Tisséo API notes (checked 2026-10-28): CORS headers only on XML answers (none on JSON), hence
 `journeys.xml` read with `DOMParser`; a refused key answers 403 without CORS headers, so the
