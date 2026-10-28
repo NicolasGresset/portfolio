@@ -180,8 +180,14 @@
     init();
     requestAnimationFrame(loop);
 
+    // Keep each point at the same relative position in the (screen + margin) area,
+    // so the diagram stretches with the viewport (window resize, zoom, device emulation)
     window.addEventListener('resize', () => {
+        const oldW = W, oldH = H, oldM = m;
         resize();
-        pts = pts.map(p => ({ x: Math.min(p.x, W + m), y: Math.min(p.y, H + m) }));
+        pts = pts.map(p => ({
+            x: -m + (p.x + oldM) / (oldW + 2 * oldM) * (W + 2 * m),
+            y: -m + (p.y + oldM) / (oldH + 2 * oldM) * (H + 2 * m),
+        }));
     });
 })();

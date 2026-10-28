@@ -15,28 +15,13 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 
-<body>
+<body class="page-home">
 
     <!-- Voronoi animated background (index only) -->
     <canvas id="voronoi-canvas" aria-hidden="true"></canvas>
 
     <!-- ======= NAVIGATION ======= -->
-    <nav class="nav" aria-label="Navigation principale">
-        <div class="nav-inner">
-            <a href="index.html" class="nav-logo">ngb.</a>
-            <button class="nav-toggle" aria-label="Ouvrir le menu de navigation" aria-expanded="false">
-                <span></span><span></span><span></span>
-            </button>
-            <ul class="nav-links" role="list">
-                <li><a href="projects.html">projets</a></li>
-                <li><a href="blog.html">blog</a></li>
-                <li><a href="cinema.html">cinéma</a></li>
-                <li><a href="sport.html">sport</a></li>
-                <li><a href="publications.html">publications</a></li>
-                <li><a href="location.html">location</a></li>
-            </ul>
-        </div>
-    </nav>
+    <nav class="nav" aria-label="Navigation principale"></nav>
 
     <!-- ======= HERO ======= -->
     <section class="hero" aria-labelledby="hero-name">
@@ -110,11 +95,21 @@
                     Mail
                 </a>
 
+                <a href="https://www.strava.com/athletes/124828413" class="hero-link" aria-label="Profil Strava"
+                    target="_blank" rel="noopener noreferrer">
+                    <!-- Strava icon -->
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
+                    </svg>
+                    Strava
+                </a>
+
             </div>
         </div>
     </section>
 
-    <!-- ======= FEATURED PROJECTS ======= -->
+    <!-- Sections travaux, publications et notes masquées temporairement
+    ======= FEATURED PROJECTS =======
     <section class="section" id="projets" aria-labelledby="projects-heading">
         <div class="container">
             <div class="section-header">
@@ -129,7 +124,7 @@
         </div>
     </section>
 
-    <!-- ======= PUBLICATIONS ======= -->
+    ======= PUBLICATIONS =======
     <section class="section" id="publications" aria-labelledby="publi-heading">
         <div class="container">
             <div class="section-header">
@@ -145,7 +140,7 @@
         </div>
     </section>
 
-    <!-- ======= BLOG PREVIEW ======= -->
+    ======= BLOG PREVIEW =======
     <section class="section" aria-labelledby="blog-heading">
         <div class="container">
             <div class="section-header">
@@ -159,6 +154,8 @@
         </div>
     </section>
 
+    -->
+
     <!-- ======= FOOTER ======= -->
     <footer class="footer">
         <div class="footer-inner">
@@ -168,8 +165,9 @@
     </footer>
 
     <script src="js/voronoi.js"></script>
-    <script src="js/publications.js"></script>
+    <!-- <script src="js/publications.js"></script> -->
     <script src="js/nav.js"></script>
+    <!-- Script des projets et notes, masqué avec les sections
     <script>
         const GH_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>`;
 
@@ -205,6 +203,7 @@
                    </a>`;
         });
     </script>
+    -->
 </body>
 
 </html>

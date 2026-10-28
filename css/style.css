@@ -177,11 +177,20 @@ img { max-width: 100%; display: block; }
     padding-top: var(--nav-height);
 }
 
-.hero-inner { padding: 5rem 0; }
+/* Home page: the hero fills the viewport left by the footer */
+.page-home {
+    display: flex;
+    flex-direction: column;
+    min-height: 100svh;
+}
+.page-home .hero { flex: 1; min-height: 0; }
+
+/* Vertical only, so .container keeps its side padding */
+.hero-inner { padding-block: 5rem; }
 
 .hero-label {
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     color: var(--color-accent);
     letter-spacing: 0.15em;
     margin-bottom: 1.5rem;
@@ -1535,7 +1544,9 @@ a.activity-card { color: inherit; }
    RESPONSIVE
    ============================================= */
 @media (max-width: 768px) {
-    :root { --pad-x: 1.25rem; }
+    :root { --pad-x: 1.5rem; }
+
+    .hero-inner { padding-block: 3rem; }
 
     .nav-links {
         display: none;
