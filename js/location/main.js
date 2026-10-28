@@ -10,7 +10,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
     if (!form || !window.L) return;
 
     const MAX_PARTICIPANTS = 5;
-    const TOULOUSE = [43.6045, 1.4440];
+    const TOULOUSE = [43.6045, 1.4440]; // place du Capitole
     const MIN_QUERY_LENGTH = 3;       // Géoplateforme suggestions
     const MIN_LOCAL_QUERY_LENGTH = 2; // local place suggestions
     const MAX_LOCAL_SUGGESTIONS = 5;
@@ -257,48 +257,117 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
     };
 
     // ---- Local place search: every place with an address (candidates and search-only places
-    //      such as companies, shops, schools…) by name or short name, instant and without any
-    //      call (each word typed must start a word of the name, accents and case ignored) ----
-    const normalize = str => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    //      such as companies, shops, schools…), instant and without any call. Each typed word
+    //      (accents and case ignored) is matched against the name, aliases, former names,
+    //      category and city of every place, and scored; see docs/location-pipeline.md § 2 ----
+    const normalize = str => str.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
     const words = str => normalize(str).split(/[^a-z0-9]+/).filter(Boolean);
-    // Usual abbreviations typed for words of place names
+    // Score of a place: for each typed word, its best match, quality x weight of the field
+    const SEARCH_WEIGHTS = { name: 1, alias: 0.8, category: 0.6, city: 0.6, oldName: 0.3 };
+    const MATCH_EXACT = 3;       // the typed word is a whole word of the field
+    const MATCH_PREFIX = 2;      // the typed word starts a word of the field
+    const BONUS_NAME_START = 2;  // the name starts with the whole query
+    const BONUS_ALL_IN_NAME = 1; // every required typed word matches in the name
+    // Optional words: they add to the score when they match, but are not required
+    const STOP_WORDS = new Set(['le', 'la', 'les', 'l', 'de', 'du', 'des', 'd', 'au', 'aux']);
+    // Usual abbreviations typed for words of place names, matched as the whole word
     const ABBREVIATIONS = { st: 'saint', ste: 'sainte', av: 'avenue', bd: 'boulevard', pl: 'place', r: 'rue' };
-    // At equal relevance: metro stations, then every other place, then the numerous bus stops
+    // Other words people type for a category, on top of its label
+    const CATEGORY_SYNONYMS = {
+        'metro': 'station', 'amenity=restaurant': 'resto', 'amenity=fast_food': 'fast food snack',
+        'amenity=townhall': 'hotel de ville', 'amenity=post_office': 'poste', 'amenity=university': 'fac faculte campus',
+        'amenity=hospital': 'chu', 'amenity=doctors': 'docteur cabinet medical', 'amenity=cinema': 'cine',
+        'office=company': 'societe', 'shop=hairdresser': 'coiffure',
+    };
+    // At equal score and distance: metro stations, then every other place, then the numerous bus stops
     const categoryRank = category => (category === 'metro' ? 0 : category === 'bus' ? 2 : 1);
-    let placeIndex = null; // [{ place, rank, name, words }]
+    // [{ place, rank, name (normalized words joined), nameLength, fields: [{ field, weight, words }] }]
+    let placeIndex = null;
+
+    const placeAddress = p => [p.street, [p.postcode, p.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
 
     function loadPlaceIndex() {
         return getData().then(data => {
-            placeIndex = placeIndex || data.places.filter(p => p.address).map(p => ({
-                place: p,
-                rank:  categoryRank(p.category),
-                name:  normalize(p.name),
-                // Words of the name and of its short or former names, each typed word matched in any of them
-                words: [p.name, ...p.aliases || []].flatMap(words),
-            }));
+            placeIndex = placeIndex || data.places.filter(p => p.street || p.city).map(p => {
+                const nameWords = words(p.name);
+                const fields = [
+                    { field: 'name', words: nameWords },
+                    { field: 'alias', words: (p.aliases || []).flatMap(words) },
+                    { field: 'oldName', words: (p.oldNames || []).flatMap(words) },
+                    { field: 'category', words: words(`${data.categories[p.category]} ${CATEGORY_SYNONYMS[p.category] || ''}`) },
+                    { field: 'city', words: words(p.city || '') },
+                ].filter(f => f.words.length).map(f => ({ ...f, weight: SEARCH_WEIGHTS[f.field] }));
+                return { place: p, rank: categoryRank(p.category), name: nameWords.join(' '), nameLength: p.name.length, fields };
+            });
         }).catch(err => console.error(err));
     }
 
-    function searchLocal(text) {
+    // Best match of one typed word in a place: { score, inName }
+    function bestMatch(entry, token) {
+        const expanded = ABBREVIATIONS[token];
+        let score = 0;
+        let inName = false;
+        for (const { field, weight, words: fieldWords } of entry.fields) {
+            for (const w of fieldWords) {
+                const quality = w === token || w === expanded ? MATCH_EXACT : w.startsWith(token) ? MATCH_PREFIX : 0;
+                if (quality * weight > score) score = quality * weight;
+                if (quality && field === 'name') inName = true;
+            }
+        }
+        return { score, inName };
+    }
+
+    // Score of a place for the typed words, null when a required word matches nothing
+    function scorePlace(entry, tokens, required) {
+        let score = 0;
+        let allInName = true;
+        for (let i = 0; i < tokens.length; i++) {
+            const match = bestMatch(entry, tokens[i]);
+            if (!match.score && required[i]) return null;
+            score += match.score;
+            if (required[i] && !match.inName) allInName = false;
+        }
+        if (entry.name.startsWith(tokens.join(' '))
+            || entry.name.startsWith(tokens.map(t => ABBREVIATIONS[t] || t).join(' '))) score += BONUS_NAME_START;
+        if (allInName) score += BONUS_ALL_IN_NAME;
+        return score;
+    }
+
+    // origin: center of the participants already located (Capitole if none), to rank near places first
+    function searchLocal(text, origin) {
         const tokens = words(text);
         if (!placeIndex || !tokens.length) return [];
-        const query = normalize(text).trim();
-        const matches = (w, t) => w.startsWith(t) || (ABBREVIATIONS[t] && w === ABBREVIATIONS[t]);
-        return placeIndex
-            .filter(e => tokens.every(t => e.words.some(w => matches(w, t))))
-            // Names starting with the query first, then by category, then the shortest names
-            .sort((a, b) => (b.name.startsWith(query) - a.name.startsWith(query))
-                || a.rank - b.rank
-                || a.name.length - b.name.length)
+        // Stop words are optional, unless the query has nothing else
+        const onlyStopWords = tokens.every(t => STOP_WORDS.has(t));
+        const required = tokens.map(t => onlyStopWords || !STOP_WORDS.has(t));
+        // Squared equirectangular distance: enough to compare places a few km apart
+        const cosLat = Math.cos(origin.lat * Math.PI / 180);
+        const distance = p => (p.lat - origin.lat) ** 2 + ((p.lon - origin.lon) * cosLat) ** 2;
+        const found = [];
+        for (const entry of placeIndex) {
+            const score = scorePlace(entry, tokens, required);
+            if (score != null) found.push({ entry, score: Math.floor(score), distance: distance(entry.place) });
+        }
+        return found
+            .sort((a, b) => b.score - a.score
+                || a.distance - b.distance
+                || a.entry.rank - b.entry.rank
+                || a.entry.nameLength - b.entry.nameLength)
             .slice(0, MAX_LOCAL_SUGGESTIONS)
-            .map(({ place: p }) => ({
-                label:   `${p.name} — ${p.near ? 'près de ' : ''}${p.address}`,
-                name:    p.name,
-                address: `${p.near ? 'près de ' : ''}${p.address}`,
-                kind:    categoryLabels[p.category],
-                lat:     p.lat,
-                lon:     p.lon,
-            }));
+            .map(({ entry: { place: p } }) => {
+                const address = `${p.near ? 'près de ' : ''}${placeAddress(p)}`;
+                return { label: `${p.name} — ${address}`, name: p.name, address, kind: categoryLabels[p.category], lat: p.lat, lon: p.lon };
+            });
+    }
+
+    // Center of the participants already located, the Capitole (TOULOUSE) if none
+    function searchOrigin() {
+        const located = [...list.children].filter(r => r.dataset.lat);
+        if (!located.length) return { lat: TOULOUSE[0], lon: TOULOUSE[1] };
+        return {
+            lat: located.reduce((s, r) => s + Number(r.dataset.lat), 0) / located.length,
+            lon: located.reduce((s, r) => s + Number(r.dataset.lon), 0) / located.length,
+        };
     }
 
     // ---- Address autocompletion (French national address base, IGN Géoplateforme),
@@ -407,7 +476,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             if (text.length < MIN_LOCAL_QUERY_LENGTH) return close();
             if (!placeIndex) await loadPlaceIndex(); // typed before the data file arrived
             if (id !== requestId) return;
-            const local = searchLocal(text);
+            const local = searchLocal(text, searchOrigin());
             options = local;
             render(true);
             if (text.length < MIN_QUERY_LENGTH) return;

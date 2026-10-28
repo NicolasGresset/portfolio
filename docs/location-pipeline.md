@@ -66,9 +66,9 @@ flowchart LR
     classDef user fill:#F1F5F9,stroke:#7A90AA,color:#0C1A2E
 
     TYPE["User types<br/>in an address field"]:::user
-    TYPE -->|">= 2 chars, instant"| LOCAL["Local name search<br/>accents / case ignored,<br/>each word typed starts a word of the name<br/>or of a short / former name,<br/>st / av / bd... abbreviations;<br/>linear scan, ~1 ms for 17,000 entries"]:::algo
-    LOCAL --> JSON[("pois-toulouse.json<br/>loaded on first focus")]:::local
-    LOCAL --> RANK["Rank: name starts with query,<br/>then metro > bar, restaurant, other place > bus,<br/>then shortest name; max 5"]:::algo
+    TYPE -->|">= 2 chars, instant"| LOCAL["Local search: typed words<br/>(accents / case ignored, split on apostrophes)<br/>against name, aliases, former names,<br/>category label + synonyms, city;<br/>stop words optional, every other word required;<br/>linear scan, ~3 ms for 17,400 places"]:::algo
+    LOCAL --> JSON[("pois-toulouse.json<br/>loaded on first focus,<br/>words precomputed per field")]:::local
+    LOCAL --> RANK["Rank: score rounded down,<br/>then distance to the located participants<br/>(Capitole if none), then metro > others > bus,<br/>then shortest name; max 5"]:::algo
     TYPE -->|">= 3 chars, 250 ms debounce"| COMPLETION[("Géoplateforme completion<br/>addresses + IGN points of interest,<br/>Haute-Garonne only, max 6")]:::api
     RANK --> LIST["Suggestions:<br/>local places first, then addresses"]
     COMPLETION --> LIST
@@ -79,6 +79,15 @@ flowchart LR
     BROWSERGEO -->|"then"| REVERSE[("Géoplateforme reverse<br/>1 call, label only")]:::api
     REVERSE -.->|"address shown when it arrives"| POS
 ```
+
+Score of a place (constants at the top of the search section of `main.js`, starting values to tune):
+
+- each typed word keeps its best match over all fields: quality × field weight;
+- quality: whole word 3 (also for an abbreviation: `st` = `saint`), start of a word 2;
+- weight: name 1, alias 0.8, category label or synonym 0.6, city 0.6, former name 0.3;
+- + 2 when the name starts with the whole query, + 1 when every required word matches in the name;
+- stop words (le, la, les, l, de, du, des, d, au, aux) add their match but may match nothing,
+  unless the query has only stop words.
 
 ## 3. Computation (engine.js)
 
@@ -218,7 +227,24 @@ places (`CATEGORIES` in `engine.js`); every other place is for the address searc
 candidates keep their OSM or GTFS `id` (the engine keys its route cache with it); the ids of
 the other places would weigh a quarter of the file.
 
-Other fields: `name`, `lat`, `lon` (always), `address` (all but ~150 places), `addressSource`
-(`osm`: the place's own OSM address, completed with the BAN postcode and city when missing;
-`ban`: nearest address of the Base Adresse Nationale), `near` (BAN address more than 30 m
-away), `aliases` (OSM `short_name`, `alt_name`, `official_name`, `old_name`).
+Duplicates: within one source, the same name (accents and case ignored) closer than 300 m is
+one place, whatever its categories: it takes the category first in the order bar, restaurant,
+metro, bus, other amenities, office, shop, craft, and the position and address of its best
+described feature (an address, then a node rather than a building). An OSM `amenity=bus_station`
+named like a Tisséo stop area within 300 m is that stop area and is dropped. Other OSM places
+named like a nearby stop (a school, a church, a clinic) stay apart: the stop is named after them.
+
+Fields (generation normalizes them, the browser only reads them):
+
+| Field | Presence | Content |
+|---|---|---|
+| `id` | candidates only | OSM `node/…`, `way/…`, `relation/…` or Tisséo `stop_area:…` |
+| `category` | always | code, see above |
+| `name` | always | as written in OSM or the GTFS, trimmed only (capitals are often real acronyms) |
+| `lat`, `lon` | always | node, mean of a building's outer ring, or stop area position; 5 decimals |
+| `street` | ~17,200 | house number and street, street type capitalized |
+| `postcode`, `city` | all but 2 | commune in its BAN spelling, without CEDEX; CEDEX or missing OSM postcodes replaced by the BAN one |
+| `addrSrc` | with an address | `osm`: the place's own OSM street; `ban`: the nearest BAN address (bulk reverse geocoder), or, when none is found, only the postcode and city of the nearest one within 500 m (no street) |
+| `near` | some `ban` | the BAN address is more than 30 m away ("près de") |
+| `aliases` | ~700 | OSM `short_name`, `alt_name`, `official_name` (split on `;`) |
+| `oldNames` | ~140 | OSM `old_name`, kept apart: it sometimes names the previous business at the address |

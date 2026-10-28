@@ -14,9 +14,12 @@
 //   osmium tags-filter area.osm.pbf nwr/office nwr/shop nwr/craft nwr/amenity -o tagged.osm.pbf
 //   osmium export tagged.osm.pbf -f geojsonseq -u type_id --geometry-types=point,polygon -o tagged.geojsonseq
 //
-// Addresses: the OSM address when it has a street, completed (postcode, city) by the nearest
-// address from the IGN Géoplateforme bulk reverse geocoder; otherwise that nearest address,
-// "près de" beyond 30 m.
+// Duplicates: the same name within 300 m is one place, whatever its categories (bar first, then
+// restaurant). Names are kept as written (many capitals are real acronyms: ADEME, LAAS, CLS).
+//
+// Addresses, split into street (may be missing), postcode and city, with addrSrc: the OSM address
+// when it has a street (city without CEDEX, casing fixed), completed by the IGN Géoplateforme
+// bulk reverse geocoder; otherwise the nearest BAN address, "près de" beyond 30 m.
 //
 // Usage (needs the unzip command): node scripts/build-places.js <tagged.geojsonseq> <osm extract date>
 
@@ -33,10 +36,14 @@ const GTFS_FILENAME = 'tisseo_gtfs_v2.zip';
 const ROUTE_TYPE_METRO = '1';
 const ROUTE_TYPE_BUS = '3';
 const REVERSE_CSV_URL = 'https://data.geopf.fr/geocodage/reverse/csv';
+const REVERSE_URL = 'https://data.geopf.fr/geocodage/reverse';
+const LOCALITY_RADIUS_M = 500; // the geocoder's maximum search circle
 const REVERSE_BATCH = 5000;
 const NEAR_THRESHOLD_M = 30;
 const MERGE_DISTANCE_M = 300; // same name closer than this: one place (a node and its buildings)
-const ALIAS_KEYS = ['short_name', 'alt_name', 'official_name', 'old_name'];
+// Other names of a place; old_name is kept apart (oldNames): it sometimes names the previous
+// business at the same address
+const ALIAS_KEYS = ['short_name', 'alt_name', 'official_name'];
 // Meeting point candidates: the only places that keep their OSM or GTFS id (used by the engine);
 // the ids of the ~15,000 other places would weigh a quarter of the file
 const CANDIDATE_CATEGORIES = new Set(['amenity=bar', 'amenity=restaurant', 'metro', 'bus']);
@@ -218,7 +225,7 @@ async function fetchGtfsStops() {
             const types = servedBy.get(id);
             const code = types?.has(ROUTE_TYPE_METRO) ? 'metro' : types?.has(ROUTE_TYPE_BUS) ? 'bus' : null;
             if (code && inArea(area.lat, area.lon)) {
-                stops.push({ id, category: code, name: area.name, lat: round(area.lat), lon: round(area.lon), aliases: [] });
+                stops.push({ id, category: code, name: area.name, lat: round(area.lat), lon: round(area.lon), aliases: [], isNode: true });
             }
         }
         return stops;
@@ -240,6 +247,9 @@ function position(geometry) {
     };
 }
 
+// Values of a tag, split on OSM's ";" separator
+const tagValues = value => (value || '').split(';').map(v => v.trim()).filter(Boolean);
+
 function readOsmPlaces(file) {
     const places = [];
     for (const raw of fs.readFileSync(file, 'utf8').split('\n')) {
@@ -251,6 +261,7 @@ function readOsmPlaces(file) {
         if (!category) continue;
         const { lat, lon } = position(geometry);
         if (!inArea(lat, lon)) continue;
+        const otherName = v => normalize(v) !== normalize(name);
         places.push({
             id:       osmId(id),
             category: category.code,
@@ -258,23 +269,33 @@ function readOsmPlaces(file) {
             name,
             lat:      round(lat),
             lon:      round(lon),
-            aliases:  ALIAS_KEYS.map(k => tags[k]?.trim()).filter(a => a && normalize(a) !== normalize(name)),
-            street:   tags['addr:street'],
-            number:   tags['addr:housenumber'],
-            postcode: tags['addr:postcode'],
-            city:     tags['addr:city'],
+            aliases:  ALIAS_KEYS.flatMap(k => tagValues(tags[k])).filter(otherName),
+            oldNames: tagValues(tags.old_name).filter(otherName),
+            street:   tags['addr:street']?.trim(),
+            number:   tags['addr:housenumber']?.trim(),
+            postcode: tags['addr:postcode']?.trim(),
+            city:     tags['addr:city']?.trim(),
             isNode:   geometry.type === 'Point',
         });
     }
     return places;
 }
 
-// Same category and name within MERGE_DISTANCE_M: keep the best described one (address, then
-// node), with every alias; chains keep one place per shop since their shops are further apart
+// Merge order of categories: a place tagged twice keeps the first one in this order
+function categoryPriority(category) {
+    const order = ['amenity=bar', 'amenity=restaurant', 'metro', 'bus', 'amenity=', 'office=', 'shop=', 'craft='];
+    return order.findIndex(prefix => category === prefix || (prefix.endsWith('=') && category.startsWith(prefix)));
+}
+
+// Same name within MERGE_DISTANCE_M, whatever the categories: one place (a node and its
+// buildings, a bar also tagged restaurant…). It keeps the position and address of the best
+// described one (address, then node), the category first in categoryPriority, every alias.
+// Chains keep one place per shop since their shops are further apart. Call it on one source
+// at a time: a metro station and the car park named after it are two places.
 function mergeDuplicates(places) {
     const byName = new Map();
     places.forEach(p => {
-        const key = `${p.category}:${normalize(p.name)}`;
+        const key = normalize(p.name);
         if (!byName.has(key)) byName.set(key, []);
         byName.get(key).push(p);
     });
@@ -287,9 +308,17 @@ function mergeDuplicates(places) {
             if (cluster) cluster.push(p);
             else clusters.push([p]);
         });
-        clusters.forEach(([best, ...others]) => {
-            const aliases = new Set([best, ...others].flatMap(p => p.aliases));
-            merged.push({ ...best, aliases: [...aliases] });
+        clusters.forEach(cluster => {
+            const [best] = cluster;
+            const tag = cluster.reduce((a, b) => (categoryPriority(b.category) < categoryPriority(a.category) ? b : a));
+            merged.push({
+                ...best,
+                id:       tag.id, // a candidate keeps the id of the feature that made it one
+                category: tag.category,
+                label:    tag.label,
+                aliases:  [...new Set(cluster.flatMap(p => p.aliases))],
+                oldNames: [...new Set(cluster.flatMap(p => p.oldNames))],
+            });
         });
     }
     return merged;
@@ -297,7 +326,8 @@ function mergeDuplicates(places) {
 
 // ---- Addresses ----
 
-// Nearest address of every place, by batches of the bulk reverse geocoder
+// Nearest address of every place, by batches of the bulk reverse geocoder (its own search
+// radius: some places, on campuses or in parks, get none)
 async function reverseGeocode(places) {
     const found = [];
     for (let start = 0; start < places.length; start += REVERSE_BATCH) {
@@ -311,27 +341,88 @@ async function reverseGeocode(places) {
         if (!res.ok) throw new Error(`Bulk reverse geocoding failed: ${res.status}`);
         const [header, ...rows] = parseCsvRows(await res.text());
         if (rows.length !== batch.length) throw new Error(`Bulk reverse geocoding: ${rows.length} rows for ${batch.length}`);
-        found.push(...rows.map(r => Object.fromEntries(header.map((h, i) => [h, r[i]]))));
+        found.push(...rows.map(r => {
+            const row = Object.fromEntries(header.map((h, i) => [h, r[i]]));
+            return row.result_city ? {
+                street:   row.result_name,
+                postcode: row.result_postcode,
+                city:     row.result_city,
+                distance: Number(row.result_distance),
+            } : null;
+        }));
         console.log(`Reverse geocoded ${found.length} / ${places.length}`);
     }
     return found;
 }
 
-// { address, addressSource, near } of a place, null when neither OSM nor the BAN has one
-function address(place, nearest) {
-    const postcode = place.postcode || nearest.result_postcode;
-    const city = place.city || nearest.result_city;
-    const locality = [postcode, city].filter(Boolean).join(' ');
+// Postcode and city of the nearest address within LOCALITY_RADIUS_M (one call per place, for
+// the few places the bulk geocoder left without any), null if none
+async function nearestLocality(place) {
+    const params = new URLSearchParams({
+        lat: place.lat, lon: place.lon, limit: 1,
+        searchgeom: JSON.stringify({ type: 'Circle', coordinates: [place.lon, place.lat], radius: LOCALITY_RADIUS_M }),
+    });
+    const res = await fetch(`${REVERSE_URL}?${params}`);
+    if (!res.ok) throw new Error(`Reverse geocoding failed: ${res.status}`);
+    const found = (await res.json()).features?.[0]?.properties;
+    return found ? { postcode: found.postcode, city: found.city } : null;
+}
+
+// French title case for names written all in capitals or all in lower case:
+// "SAINT-ORENS-DE-GAMEVILLE" -> "Saint-Orens-de-Gameville"
+const PARTICLES = new Set(['de', 'du', 'des', 'la', 'le', 'les', 'sur', 'sous', 'en', 'et', 'l', 'd', 'aux', 'au']);
+function titleCase(text) {
+    if (text !== text.toUpperCase() && text !== text.toLowerCase()) return text;
+    return text.toLowerCase().replace(/[a-zà-ÿ]+/g, (word, offset) => (offset > 0 && PARTICLES.has(word)
+        ? word
+        : word[0].toUpperCase() + word.slice(1)));
+}
+
+// City without its CEDEX mention, in the BAN spelling of the commune. OSM sometimes gives a
+// district instead of the commune ("Purpan", "Saint-Jean"): then the BAN commune of the place.
+// communes: Map of normalized commune name -> BAN spelling
+const cityKey = city => normalize(city).replace(/[^a-z]/g, '');
+function cleanCity(city, area, communes) {
+    const plain = city.replace(/\s+cedex\b.*$/i, '').trim();
+    return communes.get(cityKey(plain)) || area?.city || titleCase(plain);
+}
+
+// Street type capitalized, after the house number ("62a boulevard X" -> "62a Boulevard X")
+const capitalizeStreet = street => street
+    .replace(/^(\d+\w*(?:\s+(?:bis|ter|quater))?\s+)?(\p{Ll})/u, (_, number = '', letter) => number + letter.toUpperCase());
+
+// OSM street with its house number, casing fixed
+const cleanStreet = (number, street) => capitalizeStreet(number ? `${number} ${titleCase(street)}` : titleCase(street));
+
+// { street?, postcode?, city?, addrSrc, near? } of a place, null when nothing is known:
+// - addrSrc "osm": the place's own street, its postcode and city completed or corrected by the BAN
+//   (CEDEX postcodes are not the commune's);
+// - addrSrc "ban": the nearest BAN address, "near" beyond NEAR_THRESHOLD_M; or, when none was
+//   found, only the postcode and city of the nearest one within LOCALITY_RADIUS_M (no street:
+//   one that far would mislead).
+function address(place, ban, locality, communes) {
     if (place.street) {
-        const street = place.number ? `${place.number} ${place.street}` : place.street;
-        return { address: locality ? `${street}, ${locality}` : street, addressSource: 'osm' };
+        const cedex = /cedex/i.test(place.city || '') || !/^\d{5}$/.test(place.postcode || '');
+        const area = ban || locality;
+        const postcode = cedex ? area?.postcode : place.postcode;
+        const city = place.city ? cleanCity(place.city, area, communes) : area?.city;
+        return {
+            street: cleanStreet(place.number, place.street),
+            ...postcode && { postcode },
+            ...city && { city },
+            addrSrc: 'osm',
+        };
     }
-    if (!nearest.result_name) return null;
-    return {
-        address:       `${nearest.result_name}, ${nearest.result_postcode} ${nearest.result_city}`,
-        addressSource: 'ban',
-        near:          Number(nearest.result_distance) > NEAR_THRESHOLD_M,
-    };
+    if (ban) {
+        return {
+            street:   capitalizeStreet(ban.street),
+            postcode: ban.postcode,
+            city:     ban.city,
+            addrSrc:  'ban',
+            ...ban.distance > NEAR_THRESHOLD_M && { near: true },
+        };
+    }
+    return locality ? { postcode: locality.postcode, city: locality.city, addrSrc: 'ban' } : null;
 }
 
 (async () => {
@@ -344,28 +435,38 @@ function address(place, nearest) {
     const read = readOsmPlaces(input);
     const osmPlaces = mergeDuplicates(read);
     console.log(`${read.length} named OSM features, ${osmPlaces.length} places after merging duplicates`);
-    const stops = await fetchGtfsStops();
-    stops.forEach(s => { s.label = LABELS[s.category]; });
-    const all = [...osmPlaces, ...stops];
+    const gtfsStops = await fetchGtfsStops();
+    gtfsStops.forEach(s => Object.assign(s, { label: LABELS[s.category], oldNames: [] }));
+    const stops = mergeDuplicates(gtfsStops);
+    console.log(`${gtfsStops.length} stop areas, ${stops.length} after merging duplicates`);
+    // An OSM bus station named like a Tisséo stop area nearby is that stop area. Other places
+    // named like a stop (a school, a church…) are distinct: the stop is named after them
+    const isStop = p => p.category === 'amenity=bus_station' && stops.some(s =>
+        normalize(s.name) === normalize(p.name) && distanceM(s, p) < MERGE_DISTANCE_M);
+    const all = [...osmPlaces.filter(p => !isStop(p)), ...stops];
     const nearest = await reverseGeocode(all);
 
+    // Places without a BAN address, or with an OSM address missing its postcode or city
+    const localities = new Map();
+    const missing = all.filter((p, i) => !nearest[i] && (!p.street || !p.postcode || !p.city));
+    for (const p of missing) localities.set(p, await nearestLocality(p));
+    console.log(`Looked up the locality of ${missing.length} places, ${[...localities.values()].filter(Boolean).length} found`);
+
+    const communes = new Map([...nearest, ...localities.values()].filter(Boolean).map(a => [cityKey(a.city), a.city]));
     const categories = {};
     const places = all
         .map((p, i) => {
             categories[p.category] = p.label;
-            const found = address(p, nearest[i]);
+            const found = address(p, nearest[i], localities.get(p), communes);
             return {
                 ...CANDIDATE_CATEGORIES.has(p.category) && { id: p.id },
                 category: p.category,
                 name:     p.name,
                 lat:      p.lat,
                 lon:      p.lon,
-                ...found && {
-                    address:       found.address,
-                    addressSource: found.addressSource,
-                    ...found.near && { near: true },
-                },
+                ...found,
                 ...p.aliases.length && { aliases: p.aliases },
+                ...p.oldNames.length && { oldNames: p.oldNames },
             };
         })
         .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name, 'fr'));
@@ -377,7 +478,7 @@ function address(place, nearest) {
     places.forEach(p => { counts[p.category] = (counts[p.category] || 0) + 1; });
     const candidates = [...CANDIDATE_CATEGORIES].map(c => `${c} ${counts[c]}`).join(', ');
     console.log(`Wrote ${places.length} places (${candidates}), ${Object.keys(categories).length} categories, `
-        + `${places.filter(p => !p.address).length} without address, ${(fs.statSync(OUTPUT).size / 1024).toFixed(0)} KB`);
+        + `${places.filter(p => !p.city).length} without city, ${(fs.statSync(OUTPUT).size / 1024).toFixed(0)} KB`);
 })().catch(err => {
     console.error(err);
     process.exit(1);
