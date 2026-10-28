@@ -1,8 +1,22 @@
 {
     "headers": [
         {
+            "source": "/(.*)",
+            "headers": [
+                {
+                    "key": "Content-Security-Policy",
+                    "value": "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org https://a.ltrbxd.com; font-src 'self'; connect-src 'self' https://api.openrouteservice.org https://api.transitous.org https://api.tisseo.fr https://data.geopf.fr https://api.archives-ouvertes.fr https://doi.org https://api.crossref.org; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
+                }
+            ]
+        },
+        {
             "source": "/assets/fonts/(.*)",
-            "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=31536000, immutable"
+                }
+            ]
         }
     ]
 }
