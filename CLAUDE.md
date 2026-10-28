@@ -20,10 +20,17 @@ This file is excluded from the deployment (`.vercelignore`) but versioned on Git
 - Vanilla HTML/CSS/JS, no build step. Pages at the root (`index.html`, `rendez-vous.html`, `sport.html`, …),
   shared navigation and footer in `js/layout.js`, styles in `css/style.css`.
 - `api/*.js`: Vercel serverless functions for the sport and cinema pages only (keys in Vercel env, see `.env.example`).
-- Local dev: `node --env-file=.env scripts/dev-server.js`.
-- Browser tests: Firefox is installed in WSL (`/snap/bin/firefox`) and can run headless (`--headless`,
-  `--screenshot`) against the dev server; so far tests were Node scripts with mocked APIs.
-- `docs/` and `scripts/` are not deployed.
+- Local dev: `node --env-file=.env scripts/dev-server.js`; it sends `vercel.json`'s headers, and
+  `CSP_REPORT=1` (or `only`, not enforced) logs Content-Security-Policy violations.
+- `vercel.json`: Content-Security-Policy for every path, long cache for `assets/fonts/`. **Any new
+  external service called from a page (fetch, image, script) must be added to the CSP**, and the
+  third-party list of `legal.html` (English legal notice and privacy page) kept true.
+- Fonts (`assets/fonts`) and Leaflet (`assets/vendor/leaflet`) are served by the site: no
+  third-party request on load besides what `legal.html` lists. The site sets no cookies.
+- Browser tests: Firefox is installed in WSL (`/snap/bin/firefox`) and can run headless against the
+  dev server; driving it through WebDriver BiDi (`--remote-debugging-port`, Node's WebSocket) gives
+  navigation, in-page scenarios, console errors and screenshots.
+- `docs/`, `scripts/`, `data/README.md` (sources, ODbL licence of the places file) are not deployed.
 
 ## Rendez-vous tool (`rendez-vous.html`, `js/location/`)
 
@@ -99,14 +106,12 @@ Quotas: monitored per key, possibly paid beyond thresholds one day (doc § 2.3).
 - Possibly more candidate categories (pub, biergarten, café): one line in `CATEGORIES`, user's call.
 - Transitous is the slow step: (A) cache and pruning, or (C) local Connection Scan Algorithm on Tisséo
   GTFS (~2.6 MB/day of connections, estimated 600–900 lines). Waiting for the user's decision.
-- Site audit 2026-10-28 (done: fonts self-hosted, query parameters refused on api/, /api/activity
-  limited to the owner's runs, TMDB cached 180 days, posters 300x450). Waiting for the user:
-  - Footer year: a constant in `js/layout.js`; following the last deployment needs a build step.
-  - /api/activity serves any of the owner's runs by id (also old or not listed ones), and
-    /api/credits any TMDB id: restrict to the ids of the cached /api/sport and /api/cinema?
-  - Vercel Firewall rate limit on /api/*; legal notice and privacy page (LCEN, GDPR art. 13);
-    Content-Security-Policy in `vercel.json`; ODbL notice for `data/pois-toulouse.json`.
-  - Transitous size (measured on 12 trips): `maxItineraries=5&detailedTransfers=false` halves the
-    answer, same best trip 11/12 (one +1 min); adding `timetableView=false` is ~8x lighter but
-    worse in 7/12 (up to +14 min: it drops faster trips arriving early). Shared 720/24 h counter
-    would need a server-side store or a proxy.
+- Site audit 2026-10-28: done (fonts and Leaflet self-hosted, query parameters refused on api/,
+  /api/activity limited to the owner's runs, any of them by id being accepted by the user, TMDB
+  cached 180 days, posters 300x450, legal page, CSP, Transitous `maxItineraries=5&detailedTransfers=false`,
+  measured: half the size, same best trip on 11/12 trips). Still open:
+  - /api/credits accepts any TMDB id (each new one is a TMDB call): check it against /api/cinema?
+  - Vercel Firewall rate limit on /api/* (dashboard, the user's call).
+  - openrouteservice answers a refused key with a 403 without CORS headers: the page shows the
+    browser's raw "NetworkError" instead of "Clé openrouteservice refusée".
+  - Transitous 720/24 h shared counter: deferred to the home server.
