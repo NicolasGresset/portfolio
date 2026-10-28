@@ -19,7 +19,10 @@ module.exports = async (req, res) => {
 
     try {
         const [a, streams] = await Promise.all([intervalsGet(`/activity/${id}`), getStreams(id)]);
-        if (!RUN_TYPES.includes(a.type)) return res.status(404).json({ error: 'Not a run' });
+        // The key may read other athletes' activities (shared, followed): only the site owner's runs
+        if (a.icu_athlete_id !== process.env.INTERVALS_ATHLETE_ID || !RUN_TYPES.includes(a.type)) {
+            return res.status(404).json({ error: 'Not a run' });
+        }
 
         const { time, distance, heartrate } = streams;
         const { label, segments } = detectIntervals({ time, distance, heartrate }, a.icu_hr_zones);
