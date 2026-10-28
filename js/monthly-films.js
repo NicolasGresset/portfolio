@@ -6,14 +6,14 @@
 
     const SVG_NS = 'http://www.w3.org/2000/svg';
     const HEIGHT = 240;
-    const MARGIN = { top: 20, right: 8, bottom: 28, left: 28 };
+    const MARGIN = { top: 20, right: 8, bottom: 40, left: 28 };
     const MAX_BAR = 24;
     const RADIUS = 4;
-    const MIN_LABEL_WIDTH = 44; // px per month label, every other label is skipped below
+    const MIN_SHORT_LABEL = 36; // px per month below which "oct." becomes "O"
 
-    // 2026-03 -> "mars 26"
-    const formatMonth = ym => new Date(`${ym}-01T00:00:00Z`)
-        .toLocaleDateString('fr-FR', { month: 'short', year: '2-digit', timeZone: 'UTC' });
+    // Month on the first axis line ("oct." or "O" when narrow), year on the second
+    const formatMonth = (ym, narrow) => new Date(`${ym}-01T00:00:00Z`)
+        .toLocaleDateString('fr-FR', { month: narrow ? 'narrow' : 'short', timeZone: 'UTC' });
 
     // Axis max as 4 integer steps of 1, 2, 3 or 5 x 10^n, so the 4 ticks are whole films
     function niceMax(value) {
@@ -41,7 +41,7 @@
         const innerH = HEIGHT - MARGIN.top - MARGIN.bottom;
         const band = innerW / months.length;
         const barW = Math.min(MAX_BAR, band * 0.7);
-        const labelEvery = Math.ceil(MIN_LABEL_WIDTH / band);
+        const narrow = band < MIN_SHORT_LABEL;
         const yMax = niceMax(Math.max(...months.map(m => m.count)));
         const y = v => MARGIN.top + innerH - (v / yMax) * innerH;
 
@@ -66,10 +66,14 @@
                 el('text', { x: cx, y: y(m.count) - 6, class: 'chart-value', 'text-anchor': 'middle' }, svg)
                     .textContent = m.count;
             }
-            // Keep the current month labelled, skip back from it
-            if ((months.length - 1 - i) % labelEvery === 0) {
-                el('text', { x: cx, y: HEIGHT - 8, class: 'chart-tick', 'text-anchor': 'middle' }, svg)
-                    .textContent = formatMonth(m.month);
+            el('text', { x: cx, y: HEIGHT - 22, class: 'chart-tick', 'text-anchor': 'middle' }, svg)
+                .textContent = formatMonth(m.month, narrow);
+            // Year under each January, and under the first month unless a January follows closely,
+            // left-aligned so it never overflows
+            const firstYear = i === 0 && !months.slice(1, 3).some(n => n.month.endsWith('-01'));
+            if (firstYear || m.month.endsWith('-01')) {
+                el('text', { x: cx - band / 2 + 2, y: HEIGHT - 6, class: 'chart-tick chart-tick--year', 'text-anchor': 'start' }, svg)
+                    .textContent = m.month.slice(0, 4);
             }
         });
     }

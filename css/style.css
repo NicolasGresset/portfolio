@@ -601,8 +601,10 @@ img { max-width: 100%; display: block; }
 }
 
 .film-card {
-    display: flex;
-    gap: 1.25rem;
+    display: grid;
+    grid-template-columns: 90px 1fr auto;
+    gap: 1rem 1.25rem;
+    align-items: start;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: 8px;
@@ -610,8 +612,6 @@ img { max-width: 100%; display: block; }
 }
 
 .film-poster {
-    flex: 0 0 90px;
-    align-self: flex-start;
     aspect-ratio: 2 / 3;
     border-radius: 4px;
     overflow: hidden;
@@ -620,17 +620,11 @@ img { max-width: 100%; display: block; }
 }
 .film-poster img { display: block; width: 100%; height: 100%; object-fit: cover; }
 
-.film-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    min-width: 0;
-}
-
 .film-header {
     display: flex;
     flex-direction: column;
-    gap: 0.2rem;
+    gap: 0.35rem;
+    min-width: 0;
 }
 
 .film-title {
@@ -654,17 +648,25 @@ img { max-width: 100%; display: block; }
 
 .film-credits:empty { display: none; }
 .film-credits {
+    margin-top: 0.25rem;
     font-family: var(--font-sans);
     font-size: 0.85rem;
     color: var(--color-text-secondary);
 }
 
 .film-rating {
+    white-space: nowrap;
     font-size: 0.95rem;
     letter-spacing: 0.1em;
     color: #F59E0B;
 }
 .film-like { color: #DC2626; }
+
+.film-text {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+}
 
 .film-review {
     display: flex;
@@ -698,6 +700,8 @@ img { max-width: 100%; display: block; }
 .films-more[hidden] { display: none; }
 
 .chart-bar--films { fill: var(--color-accent); }
+
+.chart-tick--year { font-weight: 700; }
 
 .tmdb-credit {
     display: flex;
@@ -1478,8 +1482,7 @@ a.activity-card { color: inherit; }
 
     .projects-grid { grid-template-columns: 1fr; }
     .activities-grid { grid-template-columns: 1fr; }
-    .film-card { gap: 1rem; padding: 1rem; }
-    .film-poster { flex-basis: 70px; }
+    .film-card { grid-template-columns: 64px 1fr auto; gap: 0.75rem; padding: 1rem; }
     .film-spoiler, .films-more { min-height: 44px; }
     .tmdb-credit { flex-direction: column; align-items: flex-start; }
     .activity-stats--wide { grid-template-columns: repeat(2, 1fr); }

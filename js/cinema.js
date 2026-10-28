@@ -10,7 +10,8 @@ window.cinemaData = fetch('/api/cinema')
     const more = document.getElementById('films-more');
     if (!list) return;
 
-    const PAGE = 10;
+    const FIRST_PAGE = 10;
+    const NEXT_PAGE = 20;
 
     const escapeHtml = str => str.replace(/[&<>"']/g, c => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -45,22 +46,21 @@ window.cinemaData = fetch('/api/cinema')
             .catch(() => {});
     }
 
+    // Poster, header and rating on top, the review below across the whole card
     const renderFilm = f => `
         <article class="film-card">
             <a href="${escapeHtml(f.url)}" target="_blank" rel="noopener noreferrer" class="film-poster">
                 ${f.poster ? `<img src="${escapeHtml(f.poster)}" alt="Affiche de ${escapeHtml(f.title)}" loading="lazy">` : ''}
             </a>
-            <div class="film-body">
-                <div class="film-header">
-                    <a href="${escapeHtml(f.url)}" target="_blank" rel="noopener noreferrer" class="film-title">
-                        ${escapeHtml(f.title)}${f.year ? ` <span class="film-year">${f.year}</span>` : ''}
-                    </a>
-                    <span class="film-date">${f.rewatch ? 'revu' : 'vu'} le ${formatDate(f.watched)}${f.viewings > 1 ? ` &middot; vu ${f.viewings} fois` : ''}</span>
-                </div>
+            <div class="film-header">
+                <a href="${escapeHtml(f.url)}" target="_blank" rel="noopener noreferrer" class="film-title">
+                    ${escapeHtml(f.title)}${f.year ? ` <span class="film-year">${f.year}</span>` : ''}
+                </a>
+                <span class="film-date">${f.rewatch ? 'revu' : 'vu'} le ${formatDate(f.watched)}${f.viewings > 1 ? ` &middot; vu ${f.viewings} fois` : ''}</span>
                 ${f.tmdbId ? `<p class="film-credits" data-tmdb="${escapeHtml(f.tmdbId)}"></p>` : ''}
-                ${f.rating || f.liked ? `<p class="film-rating">${f.rating ? formatRating(f.rating) : ''}${f.liked ? ' <span class="film-like" aria-label="aimé">♥</span>' : ''}</p>` : ''}
-                ${review(f)}
             </div>
+            ${f.rating || f.liked ? `<p class="film-rating">${f.rating ? formatRating(f.rating) : ''}${f.liked ? ' <span class="film-like" aria-label="aimé">♥</span>' : ''}</p>` : ''}
+            ${f.review.length ? `<div class="film-text">${review(f)}</div>` : ''}
         </article>`;
 
     const renderStatus = msg => { list.innerHTML = `<p class="activities-status">${msg}</p>`; };
@@ -77,12 +77,13 @@ window.cinemaData = fetch('/api/cinema')
             if (!films.length) return renderStatus('Aucun film récent.');
             let shown = 0;
             const showMore = () => {
-                list.insertAdjacentHTML('beforeend', films.slice(shown, shown + PAGE).map(renderFilm).join(''));
+                const count = shown ? NEXT_PAGE : FIRST_PAGE;
+                list.insertAdjacentHTML('beforeend', films.slice(shown, shown + count).map(renderFilm).join(''));
                 list.querySelectorAll('.film-credits:not(.is-loaded)').forEach(line => {
                     line.classList.add('is-loaded');
                     fillCredits(line);
                 });
-                shown += PAGE;
+                shown += count;
                 more.hidden = shown >= films.length;
             };
             list.innerHTML = '';
