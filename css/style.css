@@ -868,13 +868,14 @@ img { max-width: 100%; display: block; }
 
 .chart-legend {
     display: flex;
-    gap: 1rem;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
     list-style: none;
     font-family: var(--font-mono);
     font-size: 0.75rem;
     color: var(--color-text-secondary);
 }
-.chart-legend li { display: flex; align-items: center; gap: 0.4rem; }
+.chart-legend li { display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
 
 .chart-swatch {
     width: 10px;
