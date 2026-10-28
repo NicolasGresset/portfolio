@@ -87,7 +87,13 @@ a.activity-card { color: inherit; }
     white-space: pre-line;
 }
 
-.activity-stats--wide { grid-template-columns: repeat(4, 1fr); }
+.activity-stats--wide {
+    grid-template-columns: repeat(4, 1fr);
+
+    @media (max-width: 768px) {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
 .activity-charts { margin-top: 2rem; }
 
 .chart-readout {
@@ -141,10 +147,21 @@ a.activity-card { color: inherit; }
     padding: 0.6rem 0 0.6rem 0.75rem;
     border-bottom: 1px solid var(--color-border);
     border-left: 3px solid transparent;
+
+    @media (max-width: 768px) {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.25rem 1rem;
+    }
 }
 .segment[data-type="work"] { border-left-color: var(--color-orange); color: var(--color-text-primary); }
 
-.segment-name { color: var(--color-text-primary); }
+.segment-name {
+    color: var(--color-text-primary);
+
+    @media (max-width: 768px) {
+        grid-column: 1 / -1;
+    }
+}
 
 .segment--split {
     padding-left: 2rem;
@@ -154,12 +171,3 @@ a.activity-card { color: inherit; }
 }
 .segment--split .segment-name { color: var(--color-text-secondary); }
 .segment--split[data-type="work"] { color: var(--color-text-secondary); border-left-color: rgba(245, 158, 11, 0.4); }
-
-/* =============================================
-   RESPONSIVE
-   ============================================= */
-@media (max-width: 768px) {
-    .activity-stats--wide { grid-template-columns: repeat(2, 1fr); }
-    .segment { grid-template-columns: repeat(4, 1fr); gap: 0.25rem 1rem; }
-    .segment-name { grid-column: 1 / -1; }
-}

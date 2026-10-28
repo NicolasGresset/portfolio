@@ -32,7 +32,13 @@
 .page-home .hero { flex: 1; min-height: 0; }
 
 /* Vertical only, so .container keeps its side padding */
-.hero-inner { padding-block: 5rem; }
+.hero-inner {
+    padding-block: 5rem;
+
+    @media (max-width: 768px) {
+        padding-block: 3rem;
+    }
+}
 
 .hero-label {
     font-family: var(--font-mono);
@@ -113,12 +119,4 @@
 @keyframes fade-up {
     from { opacity: 0; transform: translateY(20px); }
     to   { opacity: 1; transform: translateY(0);    }
-}
-
-/* =============================================
-   RESPONSIVE
-   ============================================= */
-@media (max-width: 768px) {
-
-    .hero-inner { padding-block: 3rem; }
 }

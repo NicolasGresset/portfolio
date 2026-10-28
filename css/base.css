@@ -48,6 +48,10 @@
     --nav-height: 64px;
     --max-width:  1100px;
     --pad-x:      2rem;
+
+    @media (max-width: 768px) {
+        --pad-x: 1.5rem;
+    }
 }
 
 /* =============================================
@@ -112,6 +116,18 @@ img { max-width: 100%; display: block; }
     display: flex;
     gap: 2rem;
     list-style: none;
+
+    @media (max-width: 768px) {
+        display: none;
+        position: absolute;
+        top: var(--nav-height);
+        left: 0;
+        right: 0;
+        background: rgba(245, 248, 255, 0.98);
+        flex-direction: column;
+        gap: 0;
+        border-bottom: 1px solid var(--color-border);
+    }
 }
 
 .nav-links a {
@@ -121,6 +137,11 @@ img { max-width: 100%; display: block; }
     text-transform: lowercase;
     letter-spacing: 0.05em;
     transition: color 0.2s ease;
+
+    @media (max-width: 768px) {
+        display: block;
+        padding: 1rem var(--pad-x);
+    }
 }
 .nav-links a:hover,
 .nav-links a.active { color: var(--color-accent-light); }
@@ -133,6 +154,10 @@ img { max-width: 100%; display: block; }
     padding: 4px;
     background: none;
     border: none;
+
+    @media (max-width: 768px) {
+        display: flex;
+    }
 }
 .nav-toggle span {
     display: block;
@@ -183,6 +208,10 @@ img { max-width: 100%; display: block; }
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 1.5rem;
+
+    @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* Bold mono titles of cards */
@@ -348,36 +377,21 @@ img { max-width: 100%; display: block; }
     align-items: center;
     flex-wrap: wrap;
     gap: 0.75rem;
+
+    @media (max-width: 768px) {
+        flex-direction: column;
+        text-align: center;
+    }
 }
 
 .footer-text a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .footer-text a:hover { color: var(--color-accent); }
 
 /* =============================================
-   RESPONSIVE
+   RESPONSIVE (mobile rules without a desktop rule
+   of their own; the others are nested in their rule)
    ============================================= */
 @media (max-width: 768px) {
-    :root { --pad-x: 1.5rem; }
-
-    .nav-links {
-        display: none;
-        position: absolute;
-        top: var(--nav-height);
-        left: 0;
-        right: 0;
-        background: rgba(245, 248, 255, 0.98);
-        flex-direction: column;
-        gap: 0;
-        border-bottom: 1px solid var(--color-border);
-    }
     .nav-links.open { display: flex; }
     .nav-links li { border-bottom: 1px solid var(--color-border); }
-    .nav-links a { display: block; padding: 1rem var(--pad-x); }
-
-    .nav-toggle { display: flex; }
-
-    .projects-grid,
-    .activities-grid { grid-template-columns: 1fr; }
-
-    .footer-inner { flex-direction: column; text-align: center; }
 }
