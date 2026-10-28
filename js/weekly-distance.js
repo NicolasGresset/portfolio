@@ -11,6 +11,7 @@
     const RADIUS = 4;
     const GAP = 2;
     const SERIES = ['easy', 'quality']; // bottom to top, colors in css/style.css
+    const LABEL_W = 52; // px needed by a week label such as "14 sept."
 
     const formatWeek = iso => new Date(`${iso}T00:00:00Z`)
         .toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -62,6 +63,9 @@
                 .textContent = Math.round(v);
         }
 
+        // On narrow screens label every n-th week, always including the current one
+        const labelStep = Math.ceil(LABEL_W / band);
+
         weeks.forEach((w, i) => {
             const cx = MARGIN.left + band * i + band / 2;
             // Stack bottom-up with a surface gap between segments
@@ -82,8 +86,10 @@
                 el('text', { x: cx, y: y(base) - 6, class: 'chart-value', 'text-anchor': 'middle' }, svg)
                     .textContent = formatKm(base);
             }
-            el('text', { x: cx, y: HEIGHT - 8, class: 'chart-tick', 'text-anchor': 'middle' }, svg)
-                .textContent = formatWeek(w.week);
+            if ((weeks.length - 1 - i) % labelStep === 0) {
+                el('text', { x: cx, y: HEIGHT - 8, class: 'chart-tick', 'text-anchor': 'middle' }, svg)
+                    .textContent = formatWeek(w.week);
+            }
         });
     }
 
