@@ -130,7 +130,9 @@ flowchart TB
     subgraph TRANSIT["Transit (engine picked in the page)"]
         PLAN[("Transitous /api/v6/plan (default)<br/>1 call per transit participant x candidate,<br/>3 at a time; arriveBy = end of slot")]:::api
         TISSEO[("Tisséo /v2/journeys.xml (user's key)<br/>2 calls per participant x candidate, 6 at a time:<br/>4 journeys leaving 1 h before the end of the slot,<br/>then 4 leaving (shortest travel time + 10 min) before it")]:::api
-        WINDOW["keep journeys arriving within the slot,<br/>the latest departure wins;<br/>time = journey only, walking included"]:::algo
+        WINDOW["keep journeys arriving by the end of the slot;<br/>time = journey + wait until the slot starts<br/>when arriving early (walking included);<br/>shortest time wins, then latest departure"]:::algo
+        RETRY["technical failure: 1 retry after 2 s;<br/>failing twice = journey failed,<br/>its candidate is 'incomplete'"]:::algo
+        WINDOW --- RETRY
         PLAN --> WINDOW
         TISSEO --> WINDOW
     end
@@ -141,7 +143,7 @@ flowchart TB
     WINDOW --> SCORE
 
     SCORE["Each participant: fastest available mode<br/>Score = sum over participants<br/>(candidate unreachable by one participant: excluded)"]:::algo
-    SCORE --> BEST["Chosen place = lowest score"]:::algo
+    SCORE --> BEST["Chosen place = lowest score among complete candidates<br/>(incomplete ones only if no complete one is reachable);<br/>failures shown in the progress, the list and the trip cards"]:::algo
 
     BEST --> ROUTES["Paths to the chosen place"]
     ROUTES --> DIRECTIONS[("openrouteservice directions<br/>1 call per walk / bike / car participant")]:::api

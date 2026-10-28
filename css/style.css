@@ -1136,6 +1136,17 @@ a.activity-card { color: inherit; }
     font-size: 0.8rem;
 }
 
+/* Warning inside the results: same look as the banner */
+.location-warning {
+    margin: 0.5rem 0 1rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #F59E0B;
+    border-radius: 8px;
+    background: #FFF7E6;
+    color: #8A5200;
+    font-size: 0.85rem;
+}
+
 .location-banner--blocking { border-color: var(--color-accent); background: var(--color-surface-hover); color: var(--color-accent-light); }
 
 .location-keys { margin-bottom: 1.5rem; }

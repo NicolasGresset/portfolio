@@ -87,6 +87,10 @@ Quotas: monitored per key, possibly paid beyond thresholds one day (doc § 2.3).
   give 199,000 graph nodes (intersections) and 268,000 edges; naive binary 4.5 MB, 1.9 MB brotli
   (without the shapes needed to draw paths); one full walking Dijkstra 77 ms on a PC. Would replace the
   openrouteservice matrix (50/day) by one Dijkstra per participant and mode.
+- Transit robustness (2026-10-28, after a walk-instead-of-metro report from Viveris, Ramonville, not
+  reproduced; most likely a failed Transitous call silently replaced by walking): 1 retry after 2 s,
+  failures counted in the progress, failed candidates marked incomplete and chosen only if nothing
+  complete is reachable. Arriving before the slot is accepted, the wait counted in the time.
 - Possibly more candidate categories (pub, biergarten, café): one line in `CATEGORIES`, user's call.
 - Transitous is the slow step: (A) cache and pruning, or (C) local Connection Scan Algorithm on Tisséo
   GTFS (~2.6 MB/day of connections, estimated 600–900 lines). Waiting for the user's decision.

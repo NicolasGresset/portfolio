@@ -12,6 +12,7 @@ import { transitTrip, forEachLimited } from './transitous.js';
 import { tisseoTrip } from './tisseo.js';
 
 const ORS_MODES = ['walk', 'bike', 'car'];
+const RETRY_DELAY_MS = 2000; // a transit journey failing for a technical reason is tried once more
 // Transit engines: journey function (same contract, counting its calls in calls[name]) and
 // journeys computed in parallel. Transitous slows down beyond 3; Tisséo answered 6 in parallel
 // without slowing down (2026-10-28)
@@ -157,30 +158,53 @@ export async function evaluate({ participants, slot, categories, transitEngine =
 
     // Every candidate keeps its journeys (legs, lines, times): choosing another place needs no new call
     const engine = TRANSIT_ENGINES[transitEngine];
+    // A technical failure (timeout, rate limit, server error) is tried once more after a pause;
+    // if it fails again, the journey is marked failed: its candidate is incomplete (see below)
+    const engineName = transitEngine === 'tisseo' ? 'Tisséo' : 'Transitous';
+    const onCall = () => { calls[transitEngine]++; };
+    const tripWithRetry = async (i, j) => {
+        try {
+            return await engine.trip(keys, onCall, participants[i], candidates[j], arriveFrom, arriveTo);
+        } catch (err) {
+            if (err.message.includes('clé Tisséo')) throw err; // every other journey would fail too
+            console.warn(`${engineName} failed, trying again: ${err.message}`);
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+            return engine.trip(keys, onCall, participants[i], candidates[j], arriveFrom, arriveTo);
+        }
+    };
     let done = 0;
-    emit({ type: 'transit', engine: transitEngine, done, total: transitPairs.length });
+    let errors = 0;
+    const progress = () => emit({ type: 'transit', engine: transitEngine, done, errors, total: transitPairs.length });
+    progress();
     await forEachLimited(transitPairs, engine.parallel, async ([i, j]) => {
         try {
-            const onCall = () => { calls[transitEngine]++; };
-            const trip = await engine.trip(keys, onCall, participants[i], candidates[j], arriveFrom, arriveTo);
-            times[i][j].transit = trip == null ? { error: 'aucun trajet n\'arrive dans la plage' } : { seconds: trip.seconds, trip };
+            const trip = await tripWithRetry(i, j);
+            times[i][j].transit = trip == null
+                ? { error: 'aucun trajet n\'arrive avant la fin de la plage' }
+                : { seconds: trip.seconds, trip };
         } catch (err) {
+            if (err.message.includes('clé Tisséo')) throw err;
             console.error(err);
-            times[i][j].transit = { error: `erreur ${transitEngine === 'tisseo' ? 'Tisséo' : 'Transitous'}` };
-            if (err.message.includes('clé Tisséo')) throw err; // every other pair would fail too
+            errors++;
+            times[i][j].transit = { error: `${engineName} indisponible (2 essais)`, failed: true };
         }
-        emit({ type: 'transit', engine: transitEngine, done: ++done, total: transitPairs.length });
+        done++;
+        progress();
     });
 
-    // Score = sum of each participant's fastest time; null when someone cannot reach the candidate
+    // Score = sum of each participant's fastest time; null when someone cannot reach the candidate.
+    // A candidate is incomplete when a transit journey to it failed: its score may be too high
+    // (transit unknown, not impossible), so it is chosen only if no complete candidate is reachable
     const evaluated = candidates.map((c, j) => {
         const choices = participants.map((_, i) => fastest(times[i][j]));
         const score = choices.every(Boolean) ? choices.reduce((s, x) => s + x.seconds, 0) : null;
-        return { ...c, score, choices, times: participants.map((_, i) => times[i][j]) };
+        const incomplete = participants.some((_, i) => times[i][j].transit?.failed);
+        return { ...c, score, incomplete, choices, times: participants.map((_, i) => times[i][j]) };
     });
     const feasible = evaluated.filter(c => c.score != null);
-    const best = feasible.length
-        ? evaluated.indexOf(feasible.reduce((a, b) => (b.score < a.score ? b : a)))
+    const pool = feasible.some(c => !c.incomplete) ? feasible.filter(c => !c.incomplete) : feasible;
+    const best = pool.length
+        ? evaluated.indexOf(pool.reduce((a, b) => (b.score < a.score ? b : a)))
         : null;
 
     emit({ type: 'result', ...base, candidates: evaluated, best });

@@ -904,7 +904,8 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
                     ${leg.stops != null ? `· ${leg.stops} arrêt${leg.stops > 1 ? 's' : ''}` : ''}</span></li>`);
         });
         items.push(`<li class="trip-step trip-step--time">Arrivée ${formatClock(trip.arrival)}`
-            + `${lines.length > 1 ? ` · ${lines.length - 1} correspondance${lines.length > 2 ? 's' : ''}` : ''}</li>`);
+            + `${lines.length > 1 ? ` · ${lines.length - 1} correspondance${lines.length > 2 ? 's' : ''}` : ''}`
+            + `${trip.wait >= 60 ? ` · en avance, ${formatDuration(trip.wait)} d'attente comptées` : ''}</li>`);
         return `<ol class="trip-steps">${items.join('')}</ol>`;
     }
 
@@ -926,6 +927,8 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
                 ${trip ? transitSteps(trip, place.name)
                     : `<p class="trip-card-direct">Trajet direct${choice.mode === 'car' ? ', dont 5 min pour se garer' : ''}.</p>`}
                 ${others ? `<p class="location-muted">Autres modes : ${others}</p>` : ''}
+                ${place.times[i].transit?.failed ? `<p class="location-warning">Transports en commun inconnus pour
+                    ce trajet (${escapeHtml(place.times[i].transit.error)}) : le temps retenu peut être trop long.</p>` : ''}
             </article>`;
     }
 
@@ -949,7 +952,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             .sort((a, b) => (a.c.score ?? Infinity) - (b.c.score ?? Infinity));
         const options = ranked.map(({ c, j }) => `
             <option value="${j}"${j === selected ? ' selected' : ''}${c.score == null ? ' disabled' : ''}>
-                ${escapeHtml(c.name)} (${categoryLabels[c.category]}) — ${c.score != null ? formatDuration(c.score) : 'injoignable'}${j === data.best ? ' · retenu' : ''}
+                ${escapeHtml(c.name)} (${categoryLabels[c.category]}) — ${c.score != null ? formatDuration(c.score) : 'injoignable'}${c.incomplete ? ' · incomplet' : ''}${j === data.best ? ' · retenu' : ''}
             </option>`).join('');
 
         results.innerHTML = `
@@ -962,6 +965,8 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             </div>
             <p class="location-best"><span class="location-swatch location-swatch--best"></span>
                 <strong>${escapeHtml(place.name)}</strong> (${categoryLabels[place.category]}) — arrivée ${slotText}</p>
+            ${place.incomplete ? `<p class="location-warning">Calcul incomplet pour ce lieu : des trajets en transports
+                en commun ont échoué deux fois${place === best ? ', et aucun lieu au calcul complet n\'est atteignable par tous' : ''}.</p>` : ''}
             <div class="trip-cards">${data.participants.map((p, i) => tripCard(p, i, place)).join('')}</div>`;
         results.querySelector('#place-select').addEventListener('change', e => selectPlace(Number(e.target.value)));
         results.hidden = false;
@@ -1007,7 +1012,11 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             if (state.matrixModes.length) setStep('matrix', 'done');
             const usesTransit = participants.some(p => p.modes.includes('transit'));
             if (!usesTransit) setStep('transit', 'done', 'aucun participant concerné');
-            else setStep('transit', event.done === event.total ? 'done' : 'running', `${event.done}/${event.total} trajets (${ENGINE_NAMES[event.engine]})`);
+            else {
+                const failed = event.errors ? `, ${event.errors} en erreur après 2 essais` : '';
+                setStep('transit', event.done === event.total ? 'done' : 'running',
+                    `${event.done}/${event.total} trajets (${ENGINE_NAMES[event.engine]})${failed}`);
+            }
             if (event.done === event.total) setStep('result', 'running');
             break;
         }

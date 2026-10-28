@@ -6,10 +6,11 @@
 // Tisséo only searches by departure time, so arriving by the end of the slot takes two calls of
 // a few successive journeys each: the first leaves an hour before the end of the slot and gives
 // the shortest travel time, the second leaves that long (plus a margin) before the end of the
-// slot; of both, the journey arriving within the slot with the latest departure wins.
+// slot; of both, the best journey is picked as with Transitous (bestJourney: arriving early is
+// allowed, the wait until the slot starts counting in its time).
 // Same contract as transitTrip in transitous.js.
 
-import { parseParis } from './transitous.js';
+import { parseParis, bestJourney } from './transitous.js';
 
 const JOURNEYS_URL = 'https://api.tisseo.fr/v2/journeys.xml';
 const TIMEOUT_MS = 15000;
@@ -130,23 +131,23 @@ async function journeys(key, onCall, from, to, departure, number) {
     return [...xml.querySelectorAll('journeys > journey')].map(readJourney).filter(Boolean);
 }
 
-// Transit trip (walking included) arriving within [arriveFrom, arriveTo] ("YYYY-MM-DD HH:MM"
-// in Toulouse), for the latest departure: { seconds, departure, arrival, legs } (times in ISO),
-// or null when none arrives in the slot
+// Transit trip (walking included) to be there for the slot [arriveFrom, arriveTo]
+// ("YYYY-MM-DD HH:MM" in Toulouse): { seconds (wait included), wait, departure, arrival, legs }
+// (times in ISO), or null when no journey arrives by the end of the slot
 // onCall: called before each Tisséo request (two per trip)
 export async function tisseoTrip(key, onCall, from, to, arriveFrom, arriveTo) {
-    const slotStart = parseParis(arriveFrom).getTime();
     const slotEnd = parseParis(arriveTo).getTime();
     const probe = await journeys(key, onCall, from, to, slotEnd - PROBE_LEAD_MIN * 60000, JOURNEYS_PER_CALL);
     if (!probe.length) return null;
     const travel = Math.min(...probe.map(j => j.arrival - j.departure));
-    const found = [...probe, ...await journeys(key, onCall, from, to, slotEnd - travel - MARGIN_MIN * 60000, JOURNEYS_PER_CALL)]
-        .filter(j => j.arrival >= slotStart && j.arrival <= slotEnd);
-    if (!found.length) return null;
-    const best = found.reduce((a, b) => (b.departure > a.departure ? b : a));
+    const later = await journeys(key, onCall, from, to, slotEnd - travel - MARGIN_MIN * 60000, JOURNEYS_PER_CALL);
+    const found = bestJourney([...probe, ...later], arriveFrom, arriveTo);
+    if (!found) return null;
+    const best = found.journey;
     const iso = ms => new Date(ms).toISOString();
     return {
-        seconds:   (best.arrival - best.departure) / 1000,
+        seconds:   found.seconds,
+        wait:      found.wait,
         departure: iso(best.departure),
         arrival:   iso(best.arrival),
         legs:      best.legs.map(l => ({ ...l, departure: iso(l.departure), arrival: iso(l.arrival) })),

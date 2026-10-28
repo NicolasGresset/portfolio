@@ -3,8 +3,9 @@
 // https://transitous.org/api/ (open-source, non-commercial, light use, attribution). From a
 // browser the Referer header identifies the site, which shows a contact address.
 //
-// /plan is asked for journeys arriving by the end of the slot; those arriving within the slot
-// are kept, and the one with the latest departure wins.
+// /plan is asked for journeys arriving by the end of the slot. A journey arriving before the
+// slot starts is kept too, its time counting the wait until the slot starts; the shortest time
+// wins (at equal time, the latest departure).
 
 const PLAN_URL = 'https://api.transitous.org/api/v6/plan';
 const TIMEOUT_MS = 15000;
@@ -74,9 +75,22 @@ function itineraryLegs(itinerary) {
     });
 }
 
-// Transit trip (walking included) arriving within [arriveFrom, arriveTo] ("YYYY-MM-DD HH:MM"
-// in Toulouse), for the latest departure: { seconds, departure, arrival, legs } (times in ISO),
-// or null when none arrives in the slot
+// The journey (with at least one transit line) for which leaving and being there when the slot
+// [arriveFrom, arriveTo] ("YYYY-MM-DD HH:MM" in Toulouse) starts or within it takes the least
+// time; times: { departure, arrival } in Unix ms each. Shared with tisseo.js
+export function bestJourney(journeys, arriveFrom, arriveTo) {
+    const slotStart = parseParis(arriveFrom).getTime();
+    const slotEnd = parseParis(arriveTo).getTime();
+    const cost = j => Math.max(j.arrival, slotStart) - j.departure;
+    const valid = journeys.filter(j => j.arrival <= slotEnd);
+    if (!valid.length) return null;
+    const best = valid.reduce((a, b) => (cost(b) < cost(a) || (cost(b) === cost(a) && b.departure > a.departure) ? b : a));
+    return { journey: best, seconds: cost(best) / 1000, wait: Math.max(0, slotStart - best.arrival) / 1000 };
+}
+
+// Transit trip (walking included) to be there for the slot [arriveFrom, arriveTo]:
+// { seconds (wait included), wait, departure, arrival, legs } (times in ISO), or null when no
+// journey arrives by the end of the slot
 export async function transitTrip(from, to, arriveFrom, arriveTo) {
     const params = new URLSearchParams({
         fromPlace: `${from.lat},${from.lon}`,
@@ -89,19 +103,18 @@ export async function transitTrip(from, to, arriveFrom, arriveTo) {
     if (!res.ok) throw new Error(`Transitous plan failed: ${res.status}`);
     const data = await res.json();
 
-    const slotStart = parseParis(arriveFrom).getTime();
-    const slotEnd = parseParis(arriveTo).getTime();
-    const valid = (data.itineraries || []).filter(it => {
-        const arrival = Date.parse(it.endTime);
-        return arrival >= slotStart && arrival <= slotEnd && it.legs.some(leg => leg.mode !== 'WALK');
-    });
-    if (!valid.length) return null;
-    const latest = valid.reduce((a, b) => (Date.parse(b.startTime) > Date.parse(a.startTime) ? b : a));
+    const journeys = (data.itineraries || [])
+        .filter(it => it.legs.some(leg => leg.mode !== 'WALK'))
+        .map(it => ({ itinerary: it, departure: Date.parse(it.startTime), arrival: Date.parse(it.endTime) }));
+    const found = bestJourney(journeys, arriveFrom, arriveTo);
+    if (!found) return null;
+    const { itinerary } = found.journey;
     return {
-        seconds:   (Date.parse(latest.endTime) - Date.parse(latest.startTime)) / 1000,
-        departure: latest.startTime,
-        arrival:   latest.endTime,
-        legs:      itineraryLegs(latest),
+        seconds:   found.seconds,
+        wait:      found.wait,
+        departure: itinerary.startTime,
+        arrival:   itinerary.endTime,
+        legs:      itineraryLegs(itinerary),
     };
 }
 
