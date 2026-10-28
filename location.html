@@ -75,7 +75,8 @@
             </details>
 
             <!-- ======= INPUTS ======= -->
-            <form class="chart-card location-form" id="location-form" novalidate>
+            <!-- autocomplete="off": Firefox would otherwise restore the previous checkbox states on reload -->
+            <form class="chart-card location-form" id="location-form" novalidate autocomplete="off">
                 <div class="chart-header">
                     <h2 class="chart-title">Participants</h2>
                     <button type="button" class="location-button" id="add-participant">+ ajouter</button>
@@ -84,9 +85,11 @@
 
                 <fieldset class="location-categories" id="categories">
                     <legend>Types de lieux</legend>
-                    <label><input type="checkbox" name="categories" value="station"> stations (métro, bus)</label>
-                    <label><input type="checkbox" name="categories" value="bar" checked> bars</label>
-                    <label><input type="checkbox" name="categories" value="restaurant"> restaurants</label>
+                    <div class="chips">
+                        <label class="chip"><input type="checkbox" name="categories" value="station"><span>stations (métro, bus)</span></label>
+                        <label class="chip"><input type="checkbox" name="categories" value="bar" checked><span>bars</span></label>
+                        <label class="chip"><input type="checkbox" name="categories" value="restaurant"><span>restaurants</span></label>
+                    </div>
                 </fieldset>
 
                 <div class="location-submit">

@@ -302,6 +302,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             if (!options[index]) return;
             setPosition(row, options[index]);
             close();
+            focusNextParticipant(row);
         };
         // Local places (name, tag and address) first, then Géoplateforme addresses;
         // pending: Géoplateforme has not answered yet, so "no result" is not shown
@@ -366,6 +367,18 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
     }
 
     // ---- Participants form ----
+    // Keyboard flow on computers: Tab goes from name to address to the next name; Enter in a
+    // name goes to its address; choosing an address goes to the next participant to fill,
+    // or to "Trouver le lieu". Not on touch screens, where focusing opens the keyboard.
+    const finePointer = window.matchMedia('(pointer: fine)').matches;
+
+    function focusNextParticipant(row) {
+        if (!finePointer) return;
+        const rows = [...list.children];
+        const next = rows.slice(rows.indexOf(row) + 1).find(r => !r.classList.contains('participant--collapsed'));
+        (next ? next.querySelector('[name="name"]') : form.querySelector('[type="submit"]')).focus();
+    }
+
     let rowCounter = 0;
     function addParticipant() {
         const uid = ++rowCounter;
@@ -379,7 +392,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             </div>
             <label class="location-field">
                 <span>Nom</span>
-                <input type="text" name="name" maxlength="40">
+                <input type="text" name="name" maxlength="40" autocomplete="off">
             </label>
             <div class="location-field participant-address">
                 <label for="address-${uid}">Adresse ou lieu</label>
@@ -389,16 +402,17 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
                 <ul class="address-options" id="address-options-${uid}" role="listbox" hidden></ul>
                 <span class="participant-hint">choisissez une proposition dans la liste</span>
             </div>
-            <button type="button" class="location-button" data-action="locate">ma position actuelle</button>
-            <div class="participant-modes" role="group" aria-label="Modes de transport">
+            <button type="button" class="location-button" data-action="locate" tabindex="-1">ma position actuelle</button>
+            <div class="participant-modes chips" role="group" aria-label="Modes de transport">
                 ${Object.entries(MODE_LABELS).map(([mode, label]) => `
-                    <label><input type="checkbox" name="modes" value="${mode}"${mode === 'transit' ? ' checked' : ''}> ${label}</label>
+                    <label class="chip"><input type="checkbox" name="modes" value="${mode}" tabindex="-1"${mode === 'transit' ? ' checked' : ''}><span>${label}</span></label>
                 `).join('')}
             </div>
-            <button type="button" class="location-button location-button--ghost" data-action="remove" aria-label="Retirer ce participant">retirer</button>`;
+            <button type="button" class="location-button location-button--ghost" data-action="remove" tabindex="-1" aria-label="Retirer ce participant">retirer</button>`;
         list.appendChild(row);
         attachAutocomplete(row);
         refreshRows();
+        return row;
     }
 
     function updateSummary(row) {
@@ -420,6 +434,12 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         });
         addBtn.disabled = list.children.length >= MAX_PARTICIPANTS;
     }
+
+    list.addEventListener('keydown', e => {
+        if (e.key !== 'Enter' || e.target.name !== 'name') return;
+        e.preventDefault();
+        e.target.closest('.participant').querySelector('[name="address"]').focus();
+    });
 
     list.addEventListener('input', e => {
         if (e.target.name !== 'name') return;
@@ -467,9 +487,13 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         }, { enableHighAccuracy: true, timeout: 10000 });
     });
 
-    addBtn.addEventListener('click', addParticipant);
+    addBtn.addEventListener('click', () => {
+        const row = addParticipant();
+        if (finePointer) row.querySelector('[name="name"]').focus();
+    });
+    const firstRow = addParticipant();
     addParticipant();
-    addParticipant();
+    if (finePointer) firstRow.querySelector('[name="name"]').focus();
 
     function readParticipants() {
         return [...list.children].map(row => {
