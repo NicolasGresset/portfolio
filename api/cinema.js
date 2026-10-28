@@ -1,14 +1,13 @@
 // api/cinema.js - Vercel serverless function feeding the cinema page from the Letterboxd RSS feed
 // (last 50 diary entries):
-//   - films: one per film, most recently watched first, with poster, rating, review paragraphs
-//     and, when TMDB_READ_TOKEN is set, director and main cast from TMDB
+//   - films: one per film, most recently watched first, with poster, rating and review paragraphs
+//     (director and main cast come from api/credits.js, cached much longer)
 //   - months: viewings per month, from the first complete month to the current one
 // Set LETTERBOXD_RSS_FILE to read a saved feed instead (local dev, e.g. data/cinema.xml).
 
 const fs = require('fs');
 
 const FEED_URL = 'https://letterboxd.com/nicogresset/rss/';
-const MAIN_CAST = 2;
 
 // Feed values are flat and HTML-escaped, a regex per tag is enough
 function tag(xml, name) {
@@ -65,24 +64,6 @@ function mergeViewings(viewings) {
     return [...byFilm.values()];
 }
 
-// Director(s) and top-billed actors; a failed lookup leaves them empty rather than failing the page
-async function fetchCredits(tmdbId) {
-    try {
-        const r = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/credits`, {
-            headers: { Authorization: `Bearer ${process.env.TMDB_READ_TOKEN}` },
-        });
-        if (!r.ok) throw new Error(`TMDB ${tmdbId}: ${r.status}`);
-        const { cast = [], crew = [] } = await r.json();
-        return {
-            directors: [...new Set(crew.filter(c => c.job === 'Director').map(c => c.name))],
-            cast:      cast.sort((a, b) => a.order - b.order).slice(0, MAIN_CAST).map(c => c.name),
-        };
-    } catch (err) {
-        console.error(err);
-        return { directors: [], cast: [] };
-    }
-}
-
 async function readFeed() {
     if (process.env.LETTERBOXD_RSS_FILE) return fs.promises.readFile(process.env.LETTERBOXD_RSS_FILE, 'utf8');
     const r = await fetch(FEED_URL);
@@ -99,9 +80,6 @@ module.exports = async (req, res) => {
             .filter(f => f.watched)
             .sort((a, b) => b.watched.localeCompare(a.watched));
         const films = mergeViewings(viewings);
-        const credits = await Promise.all(films.map(f =>
-            f.tmdbId && process.env.TMDB_READ_TOKEN ? fetchCredits(f.tmdbId) : { directors: [], cast: [] }));
-        films.forEach((f, i) => Object.assign(f, credits[i]));
 
         // One bucket per month (YYYY-MM), oldest first, ending with the current month.
         // The feed is cut at 50 entries mid-month, so the oldest entry's month is left out as incomplete.

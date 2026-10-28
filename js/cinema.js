@@ -1,4 +1,5 @@
-// cinema.js - Load /api/cinema and render the Letterboxd diary, reviews flagged with spoilers hidden until clicked
+// cinema.js - Load /api/cinema and render the Letterboxd diary, reviews flagged with spoilers hidden until clicked.
+// Each card's director and main cast are filled in from /api/credits once shown.
 
 // Shared with monthly-films.js, which is loaded after this script
 window.cinemaData = fetch('/api/cinema')
@@ -31,12 +32,17 @@ window.cinemaData = fetch('/api/cinema')
             <div class="film-review" hidden>${text}</div>`;
     }
 
-    // "de Réalisateur · avec Acteur 1, Acteur 2", or nothing without TMDB credits
-    function credits(f) {
-        const parts = [];
-        if (f.directors.length) parts.push(`de ${f.directors.map(escapeHtml).join(', ')}`);
-        if (f.cast.length) parts.push(`avec ${f.cast.map(escapeHtml).join(', ')}`);
-        return parts.length ? `<p class="film-credits">${parts.join(' · ')}</p>` : '';
+    // "de Réalisateur · avec Acteur 1, Acteur 2"; the line stays empty if TMDB has nothing
+    function fillCredits(line) {
+        fetch(`/api/credits?id=${encodeURIComponent(line.dataset.tmdb)}`)
+            .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+            .then(({ directors, cast }) => {
+                const parts = [];
+                if (directors.length) parts.push(`de ${directors.join(', ')}`);
+                if (cast.length) parts.push(`avec ${cast.join(', ')}`);
+                line.textContent = parts.join(' · ');
+            })
+            .catch(() => {});
     }
 
     const renderFilm = f => `
@@ -51,7 +57,7 @@ window.cinemaData = fetch('/api/cinema')
                     </a>
                     <span class="film-date">${f.rewatch ? 'revu' : 'vu'} le ${formatDate(f.watched)}${f.viewings > 1 ? ` &middot; vu ${f.viewings} fois` : ''}</span>
                 </div>
-                ${credits(f)}
+                ${f.tmdbId ? `<p class="film-credits" data-tmdb="${escapeHtml(f.tmdbId)}"></p>` : ''}
                 ${f.rating || f.liked ? `<p class="film-rating">${f.rating ? formatRating(f.rating) : ''}${f.liked ? ' <span class="film-like" aria-label="aimé">♥</span>' : ''}</p>` : ''}
                 ${review(f)}
             </div>
@@ -72,6 +78,10 @@ window.cinemaData = fetch('/api/cinema')
             let shown = 0;
             const showMore = () => {
                 list.insertAdjacentHTML('beforeend', films.slice(shown, shown + PAGE).map(renderFilm).join(''));
+                list.querySelectorAll('.film-credits:not(.is-loaded)').forEach(line => {
+                    line.classList.add('is-loaded');
+                    fillCredits(line);
+                });
                 shown += PAGE;
                 more.hidden = shown >= films.length;
             };

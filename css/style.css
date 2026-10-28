@@ -652,6 +652,7 @@ img { max-width: 100%; display: block; }
     color: var(--color-text-muted);
 }
 
+.film-credits:empty { display: none; }
 .film-credits {
     font-family: var(--font-sans);
     font-size: 0.85rem;
