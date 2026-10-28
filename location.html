@@ -93,10 +93,14 @@
                 </fieldset>
 
                 <div class="location-submit">
-                    <label class="location-field">
-                        <span>Arrivée entre</span>
-                        <select id="slot" required></select>
-                    </label>
+                    <!-- Custom list: a native <select> cannot limit how many ranges it shows -->
+                    <div class="location-field slot-field">
+                        <span id="slot-label">Arrivée entre</span>
+                        <button type="button" class="slot-button" id="slot" aria-haspopup="listbox"
+                            aria-expanded="false" aria-controls="slot-options" aria-labelledby="slot-label slot"></button>
+                        <ul class="slot-options" id="slot-options" role="listbox" aria-labelledby="slot-label"
+                            tabindex="-1" hidden></ul>
+                    </div>
                     <button type="submit" class="location-button location-button--primary">Trouver le lieu</button>
                 </div>
                 <p class="activities-status" id="location-status" role="status" hidden></p>
