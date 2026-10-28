@@ -20,9 +20,13 @@ const decodeEntities = str => str
     .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
     .replace(/&(quot|lt|gt|nbsp|amp);/g, (_, e) => ({ quot: '"', lt: '<', gt: '>', nbsp: ' ', amp: '&' }[e]));
 
+// The feed links 600x900 posters, shown at most 90 px wide: ask Letterboxd for 300x450, sharp up
+// to 3x screens and about a third of the weight (smaller sizes such as 230x345 weigh more)
+const POSTER_SIZE = '-0-300-0-450-crop';
+
 // Description: poster paragraph, optional spoiler warning, then the review paragraphs
 function parseDescription(html) {
-    const poster = html.match(/<img src="([^"]+)"/)?.[1] ?? null;
+    const poster = html.match(/<img src="([^"]+)"/)?.[1]?.replace(/-0-\d+-0-\d+-crop/, POSTER_SIZE) ?? null;
     const paragraphs = [...html.matchAll(/<p>([\s\S]*?)<\/p>/g)]
         .map(m => m[1])
         .filter(p => !p.includes('<img') && !p.includes('This review may contain spoilers.'))
