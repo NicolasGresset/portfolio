@@ -18,6 +18,9 @@ const PROBE_LEAD_MIN = 60;  // first call: leave this long before the end of the
 const MARGIN_MIN = 10;      // second call: leave this much earlier than the travel time requires
 const JOURNEYS_PER_CALL = 4;
 
+// A refused key: every other journey would fail too, the computation stops
+export class TisseoKeyError extends Error {}
+
 // Unix ms -> "YYYY-MM-DD HH:MM" in Toulouse
 const formatParis = ms => new Intl.DateTimeFormat('sv-SE', {
     timeZone: 'Europe/Paris', dateStyle: 'short', timeStyle: 'short',
@@ -120,12 +123,15 @@ async function journeys(key, onCall, from, to, departure, number) {
     try {
         res = await fetch(`${JOURNEYS_URL}?${params}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
     } catch (err) {
-        // A refused key comes back without CORS headers: the browser only sees a network error
-        if (err.name === 'TypeError') throw new Error('Tisséo injoignable ou clé Tisséo refusée.');
+        // A refused key comes back without CORS headers: the browser only sees a network error,
+        // like a passing network failure. The engine tries again once before giving up
+        if (err.name === 'TypeError') {
+            throw Object.assign(new Error('Tisséo injoignable ou clé Tisséo refusée.'), { unreachable: true });
+        }
         throw err;
     }
     if (res.status === 404) return []; // no journey found
-    if (res.status === 401 || res.status === 403) throw new Error('Clé Tisséo refusée.');
+    if (res.status === 401 || res.status === 403) throw new TisseoKeyError('Clé Tisséo refusée.');
     if (!res.ok) throw new Error(`Tisséo journeys failed: ${res.status}`);
     const xml = new DOMParser().parseFromString(await res.text(), 'application/xml');
     return [...xml.querySelectorAll('journeys > journey')].map(readJourney).filter(Boolean);

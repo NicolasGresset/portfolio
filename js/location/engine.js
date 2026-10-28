@@ -9,7 +9,7 @@
 
 import { durationMatrix, routePath } from './ors.js';
 import { transitTrip, forEachLimited } from './transitous.js';
-import { tisseoTrip } from './tisseo.js';
+import { tisseoTrip, TisseoKeyError } from './tisseo.js';
 
 const ORS_MODES = ['walk', 'bike', 'car'];
 const RETRY_DELAY_MS = 2000; // a transit journey failing for a technical reason is tried once more
@@ -162,14 +162,21 @@ export async function evaluate({ participants, slot, categories, transitEngine =
     // if it fails again, the journey is marked failed: its candidate is incomplete (see below)
     const engineName = transitEngine === 'tisseo' ? 'Tisséo' : 'Transitous';
     const onCall = () => { calls[transitEngine]++; };
+    const trip = (i, j) => engine.trip(keys, onCall, participants[i], candidates[j], arriveFrom, arriveTo);
     const tripWithRetry = async (i, j) => {
         try {
-            return await engine.trip(keys, onCall, participants[i], candidates[j], arriveFrom, arriveTo);
+            return await trip(i, j);
         } catch (err) {
-            if (err.message.includes('clé Tisséo')) throw err; // every other journey would fail too
+            if (err instanceof TisseoKeyError) throw err;
             console.warn(`${engineName} failed, trying again: ${err.message}`);
-            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-            return engine.trip(keys, onCall, participants[i], candidates[j], arriveFrom, arriveTo);
+        }
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+        try {
+            return await trip(i, j);
+        } catch (err) {
+            // Tisséo unreachable twice in a row: most likely a refused key
+            if (err.unreachable) throw new TisseoKeyError(err.message);
+            throw err;
         }
     };
     let done = 0;
@@ -183,7 +190,7 @@ export async function evaluate({ participants, slot, categories, transitEngine =
                 ? { error: 'aucun trajet n\'arrive avant la fin de la plage' }
                 : { seconds: trip.seconds, trip };
         } catch (err) {
-            if (err.message.includes('clé Tisséo')) throw err;
+            if (err instanceof TisseoKeyError) throw err;
             console.error(err);
             errors++;
             times[i][j].transit = { error: `${engineName} indisponible (2 essais)`, failed: true };

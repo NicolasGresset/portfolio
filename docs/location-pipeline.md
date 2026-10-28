@@ -202,7 +202,9 @@ sequenceDiagram
 
 Tisséo API notes (checked 2026-10-28): CORS headers only on XML answers (none on JSON), hence
 `journeys.xml` read with `DOMParser`; a refused key answers 403 without CORS headers, so the
-browser only sees a network error; no arrival-time search, hence the two calls; Tisséo network
+browser only sees a network error, like a passing network failure: it is tried again once, and a
+second network error stops the computation as a refused key (an explicit 401/403 stops it at once);
+no arrival-time search, hence the two calls; Tisséo network
 only (no TER, no liO coaches); it gives no count of stops travelled.
 
 ## 5. Data sources and licences
