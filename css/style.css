@@ -629,10 +629,8 @@ img { max-width: 100%; display: block; }
 
 .film-header {
     display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.25rem 1rem;
+    flex-direction: column;
+    gap: 0.2rem;
 }
 
 .film-title {
@@ -654,6 +652,12 @@ img { max-width: 100%; display: block; }
     color: var(--color-text-muted);
 }
 
+.film-credits {
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+}
+
 .film-rating {
     font-size: 0.95rem;
     letter-spacing: 0.1em;
@@ -671,6 +675,8 @@ img { max-width: 100%; display: block; }
     color: var(--color-text-secondary);
     white-space: pre-line;
 }
+/* display: flex above would otherwise override the hidden attribute */
+.film-review[hidden] { display: none; }
 
 .film-spoiler,
 .films-more {

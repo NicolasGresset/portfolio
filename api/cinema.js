@@ -1,12 +1,14 @@
 // api/cinema.js - Vercel serverless function feeding the cinema page from the Letterboxd RSS feed
 // (last 50 diary entries):
-//   - films: diary entries, most recent first, with poster, rating and review paragraphs
-//   - months: films watched per month, from the first complete month to the current one
+//   - films: one per film, most recently watched first, with poster, rating, review paragraphs
+//     and, when TMDB_READ_TOKEN is set, director and main cast from TMDB
+//   - months: viewings per month, from the first complete month to the current one
 // Set LETTERBOXD_RSS_FILE to read a saved feed instead (local dev, e.g. data/cinema.xml).
 
 const fs = require('fs');
 
 const FEED_URL = 'https://letterboxd.com/nicogresset/rss/';
+const MAIN_CAST = 2;
 
 // Feed values are flat and HTML-escaped, a regex per tag is enough
 function tag(xml, name) {
@@ -34,6 +36,7 @@ function parseItem(xml) {
     const { poster, paragraphs } = parseDescription(tag(xml, 'description') || '');
     const rating = tag(xml, 'letterboxd:memberRating');
     return {
+        tmdbId:   tag(xml, 'tmdb:movieId'),
         title:    decodeEntities(tag(xml, 'letterboxd:filmTitle')),
         year:     Number(tag(xml, 'letterboxd:filmYear')) || null,
         url:      tag(xml, 'link'),
@@ -48,6 +51,38 @@ function parseItem(xml) {
     };
 }
 
+// Viewings come newest first: keep the latest date, rating and review, fill gaps from older viewings
+function mergeViewings(viewings) {
+    const byFilm = new Map();
+    for (const v of viewings) {
+        const key = v.tmdbId || `${v.title} (${v.year})`;
+        const film = byFilm.get(key);
+        if (!film) { byFilm.set(key, { ...v, viewings: 1 }); continue; }
+        film.viewings++;
+        film.rating ??= v.rating;
+        if (!film.review.length) { film.review = v.review; film.spoilers = v.spoilers; }
+    }
+    return [...byFilm.values()];
+}
+
+// Director(s) and top-billed actors; a failed lookup leaves them empty rather than failing the page
+async function fetchCredits(tmdbId) {
+    try {
+        const r = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/credits`, {
+            headers: { Authorization: `Bearer ${process.env.TMDB_READ_TOKEN}` },
+        });
+        if (!r.ok) throw new Error(`TMDB ${tmdbId}: ${r.status}`);
+        const { cast = [], crew = [] } = await r.json();
+        return {
+            directors: [...new Set(crew.filter(c => c.job === 'Director').map(c => c.name))],
+            cast:      cast.sort((a, b) => a.order - b.order).slice(0, MAIN_CAST).map(c => c.name),
+        };
+    } catch (err) {
+        console.error(err);
+        return { directors: [], cast: [] };
+    }
+}
+
 async function readFeed() {
     if (process.env.LETTERBOXD_RSS_FILE) return fs.promises.readFile(process.env.LETTERBOXD_RSS_FILE, 'utf8');
     const r = await fetch(FEED_URL);
@@ -59,24 +94,28 @@ module.exports = async (req, res) => {
     try {
         const xml = await readFeed();
         // Lists also show up in the feed, keep diary entries only
-        const films = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)]
+        const viewings = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)]
             .map(m => parseItem(m[1]))
             .filter(f => f.watched)
             .sort((a, b) => b.watched.localeCompare(a.watched));
+        const films = mergeViewings(viewings);
+        const credits = await Promise.all(films.map(f =>
+            f.tmdbId && process.env.TMDB_READ_TOKEN ? fetchCredits(f.tmdbId) : { directors: [], cast: [] }));
+        films.forEach((f, i) => Object.assign(f, credits[i]));
 
         // One bucket per month (YYYY-MM), oldest first, ending with the current month.
         // The feed is cut at 50 entries mid-month, so the oldest entry's month is left out as incomplete.
         const months = [];
-        if (films.length) {
+        if (viewings.length) {
             const last = new Date().toISOString().slice(0, 7);
-            const d = new Date(`${films[films.length - 1].watched.slice(0, 7)}-01T00:00:00Z`);
+            const d = new Date(`${viewings[viewings.length - 1].watched.slice(0, 7)}-01T00:00:00Z`);
             d.setUTCMonth(d.getUTCMonth() + 1);
             for (let m = d.toISOString().slice(0, 7); m <= last; m = d.toISOString().slice(0, 7)) {
                 months.push({ month: m, count: 0 });
                 d.setUTCMonth(d.getUTCMonth() + 1);
             }
             const byMonth = new Map(months.map(m => [m.month, m]));
-            films.forEach(f => { const b = byMonth.get(f.watched.slice(0, 7)); if (b) b.count++; });
+            viewings.forEach(f => { const b = byMonth.get(f.watched.slice(0, 7)); if (b) b.count++; });
         }
 
         // Cache on Vercel's CDN for 1h, serve stale up to 1 day while revalidating

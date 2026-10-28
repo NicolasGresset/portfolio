@@ -31,6 +31,14 @@ window.cinemaData = fetch('/api/cinema')
             <div class="film-review" hidden>${text}</div>`;
     }
 
+    // "de Réalisateur · avec Acteur 1, Acteur 2", or nothing without TMDB credits
+    function credits(f) {
+        const parts = [];
+        if (f.directors.length) parts.push(`de ${f.directors.map(escapeHtml).join(', ')}`);
+        if (f.cast.length) parts.push(`avec ${f.cast.map(escapeHtml).join(', ')}`);
+        return parts.length ? `<p class="film-credits">${parts.join(' · ')}</p>` : '';
+    }
+
     const renderFilm = f => `
         <article class="film-card">
             <a href="${escapeHtml(f.url)}" target="_blank" rel="noopener noreferrer" class="film-poster">
@@ -41,8 +49,9 @@ window.cinemaData = fetch('/api/cinema')
                     <a href="${escapeHtml(f.url)}" target="_blank" rel="noopener noreferrer" class="film-title">
                         ${escapeHtml(f.title)}${f.year ? ` <span class="film-year">${f.year}</span>` : ''}
                     </a>
-                    <span class="film-date">${f.rewatch ? 'revu' : 'vu'} le ${formatDate(f.watched)}</span>
+                    <span class="film-date">${f.rewatch ? 'revu' : 'vu'} le ${formatDate(f.watched)}${f.viewings > 1 ? ` &middot; vu ${f.viewings} fois` : ''}</span>
                 </div>
+                ${credits(f)}
                 ${f.rating || f.liked ? `<p class="film-rating">${f.rating ? formatRating(f.rating) : ''}${f.liked ? ' <span class="film-like" aria-label="aimé">♥</span>' : ''}</p>` : ''}
                 ${review(f)}
             </div>
