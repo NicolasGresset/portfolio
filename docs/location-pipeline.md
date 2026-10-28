@@ -207,6 +207,10 @@ trips (one 1 min longer); no field the page uses is lost (geometry, stops, lines
 `timetableView=false` would be ~8x lighter but returns only the latest-arriving journey, worse on
 7/12 trips (up to +14 min) since it drops faster journeys arriving early.
 
+openrouteservice note (checked 2026-10-28): a refused key gets a 403 without CORS headers, so the
+browser only sees a network error; the page then says "openrouteservice injoignable, clé refusée ou
+quota dépassé" (an exceeded quota, 429, probably looks the same; not checked).
+
 Tisséo API notes (checked 2026-10-28): CORS headers only on XML answers (none on JSON), hence
 `journeys.xml` read with `DOMParser`; a refused key answers 403 without CORS headers, so the
 browser only sees a network error, like a passing network failure: it is tried again once, and a

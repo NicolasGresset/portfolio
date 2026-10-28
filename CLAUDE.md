@@ -112,6 +112,4 @@ Quotas: monitored per key, possibly paid beyond thresholds one day (doc § 2.3).
   measured: half the size, same best trip on 11/12 trips). Still open:
   - /api/credits accepts any TMDB id (each new one is a TMDB call): check it against /api/cinema?
   - Vercel Firewall rate limit on /api/* (dashboard, the user's call).
-  - openrouteservice answers a refused key with a 403 without CORS headers: the page shows the
-    browser's raw "NetworkError" instead of "Clé openrouteservice refusée".
   - Transitous 720/24 h shared counter: deferred to the home server.

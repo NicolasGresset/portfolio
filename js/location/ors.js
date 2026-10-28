@@ -7,12 +7,22 @@ const PROFILES = { walk: 'foot-walking', bike: 'cycling-regular', car: 'driving-
 const round = x => Math.round(x * 1e5) / 1e5;
 
 async function orsPost(key, path, body) {
-    const res = await fetch(`https://api.openrouteservice.org/v2/${path}`, {
-        method:  'POST',
-        headers: { Authorization: key, 'Content-Type': 'application/json' },
-        body:    JSON.stringify(body),
-        signal:  AbortSignal.timeout(TIMEOUT_MS),
-    });
+    let res;
+    try {
+        res = await fetch(`https://api.openrouteservice.org/v2/${path}`, {
+            method:  'POST',
+            headers: { Authorization: key, 'Content-Type': 'application/json' },
+            body:    JSON.stringify(body),
+            signal:  AbortSignal.timeout(TIMEOUT_MS),
+        });
+    } catch (err) {
+        // A refused key gets a 403 without CORS headers (checked 2026-10-28), so the browser only
+        // sees a network error, like a passing network failure (and probably an exceeded quota)
+        if (err.name === 'TypeError') {
+            throw new Error('openrouteservice injoignable, clé refusée ou quota dépassé.');
+        }
+        throw err;
+    }
     if (res.status === 401 || res.status === 403) throw new Error('Clé openrouteservice refusée.');
     if (res.status === 429) throw new Error('Quota openrouteservice dépassé.');
     if (!res.ok) throw new Error(`openrouteservice ${path} failed: ${res.status}`);
