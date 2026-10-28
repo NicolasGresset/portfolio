@@ -1,7 +1,8 @@
 # Notes for Claude Code sessions
 
 Personal site gresset-bourgeois.fr. GitHub `NicolasGresset/portfolio` (public), deployed by Vercel from `main`.
-This file is excluded from the deployment (`.vercelignore`) but versioned on GitHub.
+This file is excluded from the deployment (`.vercelignore`) but versioned on GitHub. So are
+`projects.html` and `blog.html` (and their `data/` files) until they are written.
 
 ## Working rules
 
