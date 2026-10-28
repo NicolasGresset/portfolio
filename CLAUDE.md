@@ -71,7 +71,10 @@ arrival parameters tried are ignored; `number` + `firstDepartureDatetime` / `las
 several journeys in one call, so arrive-by needs 1–2 calls per pair); 20 journeys in 2.0 s at 6 in
 parallel (median ~0.5 s, no throttling seen) vs 27.7 s for Transitous at 3 in parallel the same
 afternoon; Tisséo network only (no TER / liO coaches); 404 with an empty list when no journey.
-Its terms of use and quotas are still to be checked.
+Its terms of use and quotas are still to be checked. No JSONP either (`callback` ignored) and the CORS
+preflight answers 401: a key typed in the page cannot reach Tisséo without a relay. Parked by the
+user (no own key exposed to bots); possible later: a stateless Vercel relay forwarding the visitor's
+own key (sent in a header, never stored or logged), Transitous kept when no Tisséo key is given.
 
 ## Open topics (update when they move)
 
