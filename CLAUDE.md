@@ -47,9 +47,10 @@ Full pipeline: `docs/location-pipeline.md`.
 ## Open topics (update when they move)
 
 - Local search: scoring implemented 2026-10-28 with starting weights; the user tunes them after testing.
-  Ideas left: typo tolerance. Sorted word index prototyped (94,000 pairs, identical results): faster
-  from 2 letters (2–3 ms -> 0.01–1.5 ms on a PC) but +55 ms at first focus, more memory, more code,
-  harder typo tolerance; waiting for the user's call. At equal rounded score, distance wins over
+  Sorted word index prototyped (11,300 distinct words, 94,000 pairs, identical results): from 2 letters,
+  2–5 ms -> 0.01–3.5 ms per keystroke on a PC. Built in the browser (Map + sort of distinct words):
+  ~16 ms on a PC; shipped precomputed: +103 KB brotli (+0.5 s on 1.6 Mbit/s 3G) and 3 ms to parse,
+  so building it in the browser wins below ~16 Mbit/s. Waiting for the user's call. At equal rounded score, distance wins over
   category ("jean jau" shows a hairdresser before the metro station).
 - Possibly more candidate categories (pub, biergarten, café): one line in `CATEGORIES`, user's call.
 - Transitous is the slow step: (A) cache and pruning, or (C) local Connection Scan Algorithm on Tisséo
