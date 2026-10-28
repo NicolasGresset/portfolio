@@ -215,10 +215,6 @@ img { max-width: 100%; display: block; }
     z-index: 1;
 }
 
-.section { padding: 5rem 0; }
-
-.section-header { margin-bottom: 2.5rem; }
-
 .section-label {
     font-family: var(--font-mono);
     font-size: 0.75rem;
@@ -227,24 +223,6 @@ img { max-width: 100%; display: block; }
     text-transform: uppercase;
     margin-bottom: 0.5rem;
 }
-
-.section-title {
-    font-family: var(--font-mono);
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--color-text-primary);
-}
-
-.section-more {
-    margin-top: 1.75rem;
-    text-align: right;
-}
-.section-more a {
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    color: var(--color-text-secondary);
-}
-.section-more a:hover { color: var(--color-accent-light); }
 
 /* =============================================
    HERO
@@ -544,41 +522,6 @@ img { max-width: 100%; display: block; }
     font-family: var(--font-mono);
     font-size: 0.8rem;
 }
-
-/* =============================================
-   BLOG PREVIEW LIST (home)
-   ============================================= */
-.blog-list {
-    display: flex;
-    flex-direction: column;
-}
-
-.blog-item {
-    display: flex;
-    align-items: baseline;
-    gap: 1.25rem;
-    padding: 1rem 0;
-    border-bottom: 1px solid var(--color-border);
-    color: inherit;
-    transition: background 0.15s;
-}
-.blog-item:last-child { border-bottom: none; }
-
-.blog-item-date {
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    color: var(--color-text-muted);
-    white-space: nowrap;
-    min-width: 88px;
-}
-
-.blog-item-title {
-    font-family: var(--font-sans);
-    font-size: 0.93rem;
-    color: var(--color-text-secondary);
-    transition: color 0.2s;
-}
-.blog-item:hover .blog-item-title { color: var(--color-accent-light); }
 
 /* =============================================
    PAGE HEADER (inner pages)
@@ -1083,29 +1026,6 @@ a.activity-card { color: inherit; }
 .segment--split[data-type="work"] { color: var(--color-text-secondary); border-left-color: rgba(245, 158, 11, 0.4); }
 
 /* =============================================
-   LAB PAGE
-   ============================================= */
-.lab-coming-soon {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 50vh;
-    text-align: center;
-    gap: 1.25rem;
-}
-
-.lab-icon {
-    opacity: 0.2;
-}
-
-.lab-coming-soon-text {
-    font-family: var(--font-mono);
-    font-size: 0.9rem;
-    color: var(--color-text-muted);
-}
-
-/* =============================================
    BLOG ARTICLE TEMPLATE
    ============================================= */
 .article-header {
@@ -1244,7 +1164,6 @@ a.activity-card { color: inherit; }
     font-size: 0.85rem;
 }
 
-.location-banner--blocking { border-color: var(--color-accent); background: var(--color-surface-hover); color: var(--color-accent-light); }
 
 .location-keys { margin-bottom: 1.5rem; }
 .location-keys summary { cursor: pointer; }
@@ -1683,7 +1602,6 @@ a.activity-card { color: inherit; }
     .segment { grid-template-columns: repeat(4, 1fr); gap: 0.25rem 1rem; }
     .segment-name { grid-column: 1 / -1; }
 
-    .blog-item { flex-direction: column; gap: 0.2rem; }
 
     .participant { grid-template-columns: 1fr; }
     .participant-modes { grid-column: auto; }
