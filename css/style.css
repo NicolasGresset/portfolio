@@ -662,6 +662,9 @@ img { max-width: 100%; display: block; }
     color: var(--color-text-secondary);
 }
 
+.film-credits a { color: inherit; text-decoration: underline dotted var(--color-border); text-underline-offset: 3px; }
+.film-credits a:hover { color: var(--color-accent-light); text-decoration-color: currentColor; }
+
 .film-rating {
     flex-shrink: 0;
     white-space: nowrap;

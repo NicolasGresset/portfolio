@@ -46,15 +46,19 @@ window.cinemaData = fetch('/api/cinema')
             <div class="film-review" hidden>${text}</div>`;
     }
 
+    // TMDB profile link, name shortened to initials
+    const personLink = p => `<a href="https://www.themoviedb.org/person/${encodeURIComponent(p.id)}" target="_blank"
+        rel="noopener noreferrer" title="${escapeHtml(p.name)}">${escapeHtml(shortName(p.name))}</a>`;
+
     // "de Réalisateur · avec Acteur 1, Acteur 2"; the line stays empty if TMDB has nothing
     function fillCredits(line) {
         fetch(`/api/credits?id=${encodeURIComponent(line.dataset.tmdb)}`)
             .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
             .then(({ directors, cast }) => {
                 const parts = [];
-                if (directors.length) parts.push(`de ${directors.map(shortName).join(', ')}`);
-                if (cast.length) parts.push(`avec ${cast.map(shortName).join(', ')}`);
-                line.textContent = parts.join(' · ');
+                if (directors.length) parts.push(`de ${directors.map(personLink).join(', ')}`);
+                if (cast.length) parts.push(`avec ${cast.map(personLink).join(', ')}`);
+                line.innerHTML = parts.join(' · ');
             })
             .catch(() => {});
     }

@@ -1,8 +1,11 @@
-// api/credits.js - Vercel serverless function giving a film's director(s) and main cast from TMDB
+// api/credits.js - Vercel serverless function giving a film's director(s) and main cast from TMDB,
+// each as { id, name } with the TMDB person id for profile links
 // (GET /api/credits?id=<TMDB movie id>, ids come from the Letterboxd feed in api/cinema.js).
 // Credits never change, so each film is cached for a year on Vercel's CDN.
 
 const MAIN_CAST = 2;
+
+const person = ({ id, name }) => ({ id, name });
 
 module.exports = async (req, res) => {
     const id = req.query.id;
@@ -19,8 +22,9 @@ module.exports = async (req, res) => {
 
         res.setHeader('Cache-Control', 's-maxage=31536000');
         res.status(200).json({
-            directors: [...new Set(crew.filter(c => c.job === 'Director').map(c => c.name))],
-            cast:      cast.sort((a, b) => a.order - b.order).slice(0, MAIN_CAST).map(c => c.name),
+            // A director can be listed twice (e.g. also credited for another directing job)
+            directors: [...new Map(crew.filter(c => c.job === 'Director').map(c => [c.id, person(c)])).values()],
+            cast:      cast.sort((a, b) => a.order - b.order).slice(0, MAIN_CAST).map(person),
         });
     } catch (err) {
         console.error(err);
