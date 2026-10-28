@@ -34,7 +34,9 @@ Finds the meeting place minimizing the group's total travel time for an arrival 
 Toulouse area. Fully client-side; the user's own openrouteservice key is stored in localStorage only.
 Full pipeline: `docs/location-pipeline.md`.
 
-- `main.js` UI, `engine.js` candidates and scoring, `ors.js` openrouteservice (matrix 50/day,
+- `main.js` UI glue (keys, form, progress), `search.js` local address search (no DOM), `slots.js`
+  arrival slot picker, `map.js` Leaflet drawing, `results.js` results HTML, `labels.js` shared labels;
+  `engine.js` candidates and scoring, `ors.js` openrouteservice (matrix 50/day,
   directions 200/day), `transitous.js` public transport (Transitous `/plan`, max 3 parallel calls,
   > 720 calls / 24 h needs coordination) or `tisseo.js` (optional, visitor's key), `keys.js` localStorage.
 - Address search: local instant lookup in `data/pois-toulouse.json` (≥ 2 chars), then IGN Géoplateforme
@@ -47,7 +49,7 @@ Full pipeline: `docs/location-pipeline.md`.
   > …). Rules and fields: `docs/location-pipeline.md` § 6. Rebuilt from scratch by
   `scripts/regenerate-places.sh` (download + osmium + `scripts/build-places.js`; output reproducible). ~3.1 MB raw, ~325 KB brotli, loaded once the page is shown (window load).
 - Local search: scored over name, aliases, oldNames, category label + synonyms, city; weights and bonuses
-  are constants in `main.js` (`SEARCH_WEIGHTS`…), doc § 2. Sorted word index built in the browser after
+  are constants in `search.js` (`SEARCH_WEIGHTS`…), doc § 2. Sorted word index built in the browser after
   loading (~16 ms), ~0.4 ms per keystroke on a PC (scan fallback for very common prefixes).
 - Declined by the user: Photon, a service worker, Tisséo API (key refused), Strasbourg/CTS.
 

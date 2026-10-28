@@ -56,7 +56,7 @@ flowchart TB
     DATA --> ENGINE
 ```
 
-## 2. Address search (main.js)
+## 2. Address search (search.js, main.js)
 
 ```mermaid
 flowchart LR
@@ -80,7 +80,7 @@ flowchart LR
     REVERSE -.->|"address shown when it arrives"| POS
 ```
 
-Score of a place (constants at the top of the search section of `main.js`, starting values to tune):
+Score of a place (constants at the top of `search.js`, starting values to tune):
 
 - each typed word keeps its best match over all fields: quality × field weight;
 - quality: whole word 3 (also for an abbreviation: `st` = `saint`), start of a word 2;

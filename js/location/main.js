@@ -1,9 +1,14 @@
 // main.js - Meeting point prototype, entirely in the browser: the user's API keys, participants
-// form with address autocompletion, OpenStreetMap map (Leaflet), computation progress, API call
-// counters and results.
+// form with address autocompletion, computation progress, API call counters and the glue between
+// the engine and the page's other modules (search, slots, map, results).
 
 import { loadData, evaluate, placeRoutes } from './engine.js';
 import { loadKeys, saveKeys, clearKeys } from './keys.js';
+import { createPlaceSearch } from './search.js';
+import { slotPicker } from './slots.js';
+import { TOULOUSE, createMap, drawCenter, drawCandidates, drawRoute as drawPath } from './map.js';
+import { resultsHtml, choiceText } from './results.js';
+import { MODE_LABELS, PARTICIPANT_COLORS } from './labels.js';
 import { escapeHtml } from '../format.js';
 
 (function () {
@@ -11,20 +16,16 @@ import { escapeHtml } from '../format.js';
     if (!form || !window.L) return;
 
     const MAX_PARTICIPANTS = 5;
-    const TOULOUSE = [43.6045, 1.4440]; // place du Capitole
     const MIN_QUERY_LENGTH = 3;       // Géoplateforme suggestions
     const MIN_LOCAL_QUERY_LENGTH = 2; // local place suggestions
-    const MAX_LOCAL_SUGGESTIONS = 5;
     const SUGGEST_DELAY_MS = 250;
     const ORS_MODES = ['walk', 'bike', 'car'];
-    const MODE_LABELS = { walk: 'marche', bike: 'vélo', car: 'voiture', transit: 'transports en commun' };
     const DEFAULT_MODES = ['walk', 'transit']; // checked for every new participant
     // Plurals of the candidate categories; every category's label comes with the data
     const CATEGORY_PLURALS = {
         'amenity=bar': 'bars', 'amenity=restaurant': 'restaurants', metro: 'stations de métro', bus: 'arrêts de bus',
     };
     const PLACE_KINDS = { housenumber: 'adresse', street: 'voie', municipality: 'commune', locality: 'lieu-dit' };
-    const COLORS = { candidate: '#7A90AA', best: '#EA580C', center: '#0C1A2E' };
     const STEPS = [
         { id: 'center',     label: 'Barycentre des participants' },
         { id: 'candidates', label: 'Lieux candidats (extrait local OSM + GTFS Tisséo)' },
@@ -33,8 +34,6 @@ import { escapeHtml } from '../format.js';
         { id: 'result',     label: 'Sélection du lieu' },
         { id: 'routes',     label: 'Tracés des itinéraires (openrouteservice directions, trajets en transports en commun)' },
     ];
-    // One color per participant (marker and path), none reused for candidates or the chosen place
-    const PARTICIPANT_COLORS = ['#2563EB', '#9333EA', '#0D9488', '#DB2777', '#65A30D'];
 
     const list    = document.getElementById('participants');
     const addBtn  = document.getElementById('add-participant');
@@ -44,11 +43,6 @@ import { escapeHtml } from '../format.js';
     const banner  = document.getElementById('location-banner');
     const steps   = document.getElementById('progress-steps');
     const callsEl = document.getElementById('location-calls');
-
-    function formatDuration(seconds) {
-        const minutes = Math.round(seconds / 60);
-        return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')}`;
-    }
 
     // Bring a section into view (below the fixed navigation, see scroll-margin-top in the CSS)
     function scrollToSection(el) {
@@ -128,90 +122,11 @@ import { escapeHtml } from '../format.js';
     }
     renderCalls();
 
-    // ---- Arrival slot: today's 15 min ranges, from the one before the current range;
-    //      default to the first one starting in 30 min or more. A list button showing about
-    //      10 ranges at a time (see .slot-options), with native-select keyboard behavior ----
-    const slotOptions = document.getElementById('slot-options');
-    const hhmm = minutes => `${String(Math.floor(minutes / 60) % 24).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
-    const slotLabel = minutes => `${hhmm(minutes)} – ${hhmm(minutes + 15)}`;
-    const slots = []; // range starts, in minutes since midnight
-    let slotIndex = 0;
-    const slotValue = () => hhmm(slots[slotIndex]);
+    // ---- Arrival slot (slots.js) ----
+    const slotValue = slotPicker(slot, document.getElementById('slot-options'));
 
-    // Scroll the list itself (scrollIntoView would also scroll the page)
-    function revealSlot(center) {
-        const li = slotOptions.children[slotIndex];
-        if (center) {
-            slotOptions.scrollTop = li.offsetTop - (slotOptions.clientHeight - li.offsetHeight) / 2;
-        } else if (li.offsetTop < slotOptions.scrollTop) {
-            slotOptions.scrollTop = li.offsetTop;
-        } else if (li.offsetTop + li.offsetHeight > slotOptions.scrollTop + slotOptions.clientHeight) {
-            slotOptions.scrollTop = li.offsetTop + li.offsetHeight - slotOptions.clientHeight;
-        }
-    }
-
-    function selectSlot(index) {
-        slotIndex = Math.max(0, Math.min(slots.length - 1, index));
-        slot.textContent = slotLabel(slots[slotIndex]);
-        [...slotOptions.children].forEach((li, i) => li.setAttribute('aria-selected', i === slotIndex ? 'true' : 'false'));
-        slotOptions.setAttribute('aria-activedescendant', `slot-option-${slotIndex}`);
-        if (!slotOptions.hidden) revealSlot(false);
-    }
-
-    function openSlots() {
-        slotOptions.hidden = false;
-        slot.setAttribute('aria-expanded', 'true');
-        revealSlot(true);
-        slotOptions.focus();
-    }
-
-    function closeSlots(refocus) {
-        slotOptions.hidden = true;
-        slot.setAttribute('aria-expanded', 'false');
-        if (refocus) slot.focus();
-    }
-
-    (function fillSlots() {
-        const now = new Date();
-        const minutes = now.getHours() * 60 + now.getMinutes();
-        for (let m = Math.max(0, Math.floor(minutes / 15) * 15 - 15); m < 24 * 60; m += 15) slots.push(m);
-        slotOptions.innerHTML = slots.map((m, i) =>
-            `<li role="option" id="slot-option-${i}" data-index="${i}" aria-selected="false">${slotLabel(m)}</li>`).join('');
-        const soon = slots.findIndex(m => m >= minutes + 30);
-        selectSlot(soon >= 0 ? soon : slots.length - 1);
-    })();
-
-    slot.addEventListener('click', () => (slotOptions.hidden ? openSlots() : closeSlots(true)));
-    // Closed: arrows change the range directly, as on a native select
-    slot.addEventListener('keydown', e => {
-        if (e.key === 'ArrowDown' && e.altKey) { e.preventDefault(); openSlots(); }
-        else if (e.key === 'ArrowDown') { e.preventDefault(); selectSlot(slotIndex + 1); }
-        else if (e.key === 'ArrowUp') { e.preventDefault(); selectSlot(slotIndex - 1); }
-    });
-    slotOptions.addEventListener('keydown', e => {
-        const moves = { ArrowDown: 1, ArrowUp: -1, PageDown: 10, PageUp: -10 };
-        if (e.key in moves) { e.preventDefault(); selectSlot(slotIndex + moves[e.key]); }
-        else if (e.key === 'Home') { e.preventDefault(); selectSlot(0); }
-        else if (e.key === 'End') { e.preventDefault(); selectSlot(slots.length - 1); }
-        else if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') { e.preventDefault(); closeSlots(true); }
-        else if (e.key === 'Tab') closeSlots(false);
-    });
-    slotOptions.addEventListener('click', e => {
-        const li = e.target.closest('li[data-index]');
-        if (!li) return;
-        selectSlot(Number(li.dataset.index));
-        closeSlots(true);
-    });
-    document.addEventListener('click', e => {
-        if (!slotOptions.hidden && !e.target.closest('.slot-field')) closeSlots(false);
-    });
-
-    // ---- Map ----
-    const map = L.map('location-map').setView(TOULOUSE, 12);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    }).addTo(map);
+    // ---- Map (map.js) ----
+    const map = createMap('location-map');
     const participantMarkers = new Map(); // participant row -> marker
     const resultLayer = L.layerGroup().addTo(map);
     let routeLayers = [];    // per participant: layer group holding its path to the selected place
@@ -265,179 +180,15 @@ import { escapeHtml } from '../format.js';
         return dataPromise;
     };
 
-    // ---- Local place search: every place with an address (candidates and search-only places
-    //      such as companies, shops, schools…), instant and without any call. Each typed word
-    //      (accents and case ignored) is matched against the name, aliases, former names,
-    //      category and city of every place, and scored; see docs/location-pipeline.md § 2 ----
-    const normalize = str => str.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-    const words = str => normalize(str).split(/[^a-z0-9]+/).filter(Boolean);
-    // Score of a place: for each typed word, its best match, quality x weight of the field
-    const SEARCH_WEIGHTS = { name: 1, alias: 0.8, category: 0.6, city: 0.6, oldName: 0.3 };
-    const MATCH_EXACT = 3;       // the typed word is a whole word of the field
-    const MATCH_PREFIX = 2;      // the typed word starts a word of the field
-    const BONUS_NAME_START = 2;  // the name starts with the whole query
-    const BONUS_ALL_IN_NAME = 1; // every required typed word matches in the name
-    // Optional words: they add to the score when they match, but are not required
-    const STOP_WORDS = new Set(['le', 'la', 'les', 'l', 'de', 'du', 'des', 'd', 'au', 'aux']);
-    // Usual abbreviations typed for words of place names, matched as the whole word
-    const ABBREVIATIONS = { st: 'saint', ste: 'sainte', av: 'avenue', bd: 'boulevard', pl: 'place', r: 'rue' };
-    // Other words people type for a category, on top of its label
-    const CATEGORY_SYNONYMS = {
-        'metro': 'station', 'amenity=restaurant': 'resto', 'amenity=fast_food': 'fast food snack',
-        'amenity=townhall': 'hotel de ville', 'amenity=post_office': 'poste', 'amenity=university': 'fac faculte campus',
-        'amenity=hospital': 'chu', 'amenity=doctors': 'docteur cabinet medical', 'amenity=cinema': 'cine',
-        'office=company': 'societe', 'shop=hairdresser': 'coiffure',
-    };
-    // At equal score and distance: metro stations, then every other place, then the numerous bus stops
-    const categoryRank = category => (category === 'metro' ? 0 : category === 'bus' ? 2 : 1);
-    // [{ place, rank, name (normalized words joined), nameLength, fields: [{ field, weight, words }] }]
-    let placeIndex = null;
-    // Sorted word index, built in the browser right after the data file (~16 ms on a PC; shipping it
-    // would add ~100 KB to download): every distinct word of every field, sorted, and for each the
-    // placeIndex positions of the places that have it. A typed word then finds its places with a
-    // binary search instead of a scan of every place
-    let indexWords = null;    // sorted distinct words
-    let indexPostings = null; // indexPostings[i]: placeIndex positions of the places with indexWords[i]
-
-    const placeAddress = p => [p.street, [p.postcode, p.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+    // ---- Local place search (search.js), without any call ----
+    let placeSearch = null; // search(text, origin), once the places are loaded and indexed
 
     function loadPlaceIndex() {
-        return getData().then(data => {
-            placeIndex = placeIndex || data.places.filter(p => p.street || p.city).map(p => {
-                const nameWords = words(p.name);
-                const fields = [
-                    { field: 'name', words: nameWords },
-                    { field: 'alias', words: (p.aliases || []).flatMap(words) },
-                    { field: 'oldName', words: (p.oldNames || []).flatMap(words) },
-                    { field: 'category', words: words(`${data.categories[p.category]} ${CATEGORY_SYNONYMS[p.category] || ''}`) },
-                    { field: 'city', words: words(p.city || '') },
-                ].filter(f => f.words.length).map(f => ({ ...f, weight: SEARCH_WEIGHTS[f.field] }));
-                return { place: p, rank: categoryRank(p.category), name: nameWords.join(' '), nameLength: p.name.length, fields };
-            });
-            if (!indexWords) buildWordIndex();
-        }).catch(err => console.error(err));
+        return getData()
+            .then(data => { placeSearch = placeSearch || createPlaceSearch(data); })
+            .catch(err => console.error(err));
     }
 
-    function buildWordIndex() {
-        const postings = new Map();
-        placeIndex.forEach((entry, i) => {
-            new Set(entry.fields.flatMap(f => f.words)).forEach(w => {
-                const list = postings.get(w);
-                if (list) list.push(i);
-                else postings.set(w, [i]);
-            });
-        });
-        indexWords = [...postings.keys()].sort();
-        indexPostings = indexWords.map(w => postings.get(w));
-    }
-
-    // Position of the first indexed word >= word
-    function lowerBound(word) {
-        let low = 0;
-        let high = indexWords.length;
-        while (low < high) {
-            const mid = (low + high) >> 1;
-            if (indexWords[mid] < word) low = mid + 1;
-            else high = mid;
-        }
-        return low;
-    }
-
-    // Indexed words matching token (starting with it, or equal to its abbreviation's word):
-    // { positions in indexWords, size: number of places listed, duplicates included }, or null as
-    // soon as more than limit places are listed
-    function indexRange(token, limit) {
-        const positions = [];
-        let size = 0;
-        const add = i => {
-            positions.push(i);
-            size += indexPostings[i].length;
-            return size <= limit;
-        };
-        for (let i = lowerBound(token); i < indexWords.length && indexWords[i].startsWith(token); i++) {
-            if (!add(i)) return null;
-        }
-        const expanded = ABBREVIATIONS[token];
-        if (expanded && !expanded.startsWith(token)) {
-            const i = lowerBound(expanded);
-            if (indexWords[i] === expanded && !add(i)) return null;
-        }
-        return { positions, size };
-    }
-
-    // Places to score: those matching the most selective required word (scorePlace checks the
-    // others), in placeIndex order; every place when even that word is very common ("to" matches
-    // the city Toulouse): building that set would cost more than a scan
-    const SCAN_RATIO = 0.25;
-    function candidatePlaces(tokens, required) {
-        let best = null;
-        tokens.forEach((token, i) => {
-            const range = required[i] && indexRange(token, best ? best.size : placeIndex.length * SCAN_RATIO);
-            if (range) best = range;
-        });
-        if (!best) return placeIndex;
-        const found = new Set();
-        best.positions.forEach(i => indexPostings[i].forEach(j => found.add(j)));
-        return [...found].sort((a, b) => a - b).map(j => placeIndex[j]);
-    }
-
-    // Best match of one typed word in a place: { score, inName }
-    function bestMatch(entry, token) {
-        const expanded = ABBREVIATIONS[token];
-        let score = 0;
-        let inName = false;
-        for (const { field, weight, words: fieldWords } of entry.fields) {
-            for (const w of fieldWords) {
-                const quality = w === token || w === expanded ? MATCH_EXACT : w.startsWith(token) ? MATCH_PREFIX : 0;
-                if (quality * weight > score) score = quality * weight;
-                if (quality && field === 'name') inName = true;
-            }
-        }
-        return { score, inName };
-    }
-
-    // Score of a place for the typed words, null when a required word matches nothing
-    function scorePlace(entry, tokens, required) {
-        let score = 0;
-        let allInName = true;
-        for (let i = 0; i < tokens.length; i++) {
-            const match = bestMatch(entry, tokens[i]);
-            if (!match.score && required[i]) return null;
-            score += match.score;
-            if (required[i] && !match.inName) allInName = false;
-        }
-        if (entry.name.startsWith(tokens.join(' '))
-            || entry.name.startsWith(tokens.map(t => ABBREVIATIONS[t] || t).join(' '))) score += BONUS_NAME_START;
-        if (allInName) score += BONUS_ALL_IN_NAME;
-        return score;
-    }
-
-    // origin: center of the participants already located (Capitole if none), to rank near places first
-    function searchLocal(text, origin) {
-        const tokens = words(text);
-        if (!placeIndex || !tokens.length) return [];
-        // Stop words are optional, unless the query has nothing else
-        const onlyStopWords = tokens.every(t => STOP_WORDS.has(t));
-        const required = tokens.map(t => onlyStopWords || !STOP_WORDS.has(t));
-        // Squared equirectangular distance: enough to compare places a few km apart
-        const cosLat = Math.cos(origin.lat * Math.PI / 180);
-        const distance = p => (p.lat - origin.lat) ** 2 + ((p.lon - origin.lon) * cosLat) ** 2;
-        const found = [];
-        for (const entry of candidatePlaces(tokens, required)) {
-            const score = scorePlace(entry, tokens, required);
-            if (score != null) found.push({ entry, score: Math.floor(score), distance: distance(entry.place) });
-        }
-        return found
-            .sort((a, b) => b.score - a.score
-                || a.distance - b.distance
-                || a.entry.rank - b.entry.rank
-                || a.entry.nameLength - b.entry.nameLength)
-            .slice(0, MAX_LOCAL_SUGGESTIONS)
-            .map(({ entry: { place: p } }) => {
-                const address = `${p.near ? 'près de ' : ''}${placeAddress(p)}`;
-                return { label: `${p.name} — ${address}`, name: p.name, address, kind: categoryLabels[p.category], lat: p.lat, lon: p.lon };
-            });
-    }
 
     // Load the places and build the search index as soon as the page is shown (after its own
     // resources, so the map is not slowed down): the search is ready before the first address is typed
@@ -556,9 +307,9 @@ import { escapeHtml } from '../format.js';
             const id = ++requestId; // answers to older queries are ignored
             const text = input.value.trim();
             if (text.length < MIN_LOCAL_QUERY_LENGTH) return close();
-            if (!placeIndex) await loadPlaceIndex(); // typed before the data file arrived
+            if (!placeSearch) await loadPlaceIndex(); // typed before the data file arrived
             if (id !== requestId) return;
-            const local = searchLocal(text, searchOrigin());
+            const local = placeSearch ? placeSearch(text, searchOrigin()) : [];
             options = local;
             render(true);
             if (text.length < MIN_QUERY_LENGTH) return;
@@ -763,74 +514,20 @@ import { escapeHtml } from '../format.js';
         return `${candidates.length} lieu${candidates.length > 1 ? 'x' : ''}${parts.length ? ` : ${parts.join(', ')}` : ''}`;
     }
 
-
-    // ---- Results: the chosen place (best by default, or picked in the list or on the map),
-    //      each participant's trip to it, and the paths on the map ----
-    const formatClock = iso => new Date(iso).toLocaleTimeString('fr-FR', {
-        hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris',
-    });
-
-    function choiceText(choice) {
-        return choice ? `${formatDuration(choice.seconds)} (${MODE_LABELS[choice.mode]})` : 'injoignable';
-    }
-
-    function drawCenter(center) {
-        L.circleMarker([center.lat, center.lon], { radius: 4, color: COLORS.center, fillOpacity: 1, weight: 1 })
-            .bindTooltip('barycentre')
-            .addTo(resultLayer);
-    }
-
-    // Candidates in grey (clickable once evaluated), the selected one in orange
-    function drawCandidates(candidates, selected = null) {
-        candidates.forEach((c, j) => {
-            const isSelected = j === selected;
-            const marker = L.circleMarker([c.lat, c.lon], isSelected
-                ? { radius: 11, color: COLORS.best, fillOpacity: 0.9, weight: 3 }
-                : { radius: 6, color: COLORS.candidate, fillOpacity: 0.7, weight: 1 })
-                .bindTooltip(`${escapeHtml(c.name)} · ${categoryLabels[c.category]}`
-                    + (c.score !== undefined ? ` · ${c.score != null ? `total ${formatDuration(c.score)}` : 'injoignable'}` : ''))
-                .addTo(resultLayer);
-            if (c.score != null && !isSelected) marker.on('click', () => selectPlace(j));
-        });
-    }
-
-    const straightLine = (from, to, color) => L.polyline([[from.lat, from.lon], [to.lat, to.lon]],
-        { color, weight: 2, dashArray: '4 6', opacity: 0.6 });
-
-    // A participant's path to the selected place: solid for walk, bike, car and transit lines,
-    // dotted for walking parts of a transit trip; a straight dashed line until it is known
+    // ---- Results (results.js): the chosen place, each participant's trip to it, and the paths
+    //      on the map ----
     function drawRoute(i) {
         const place = current.data.candidates[current.selected];
-        const p = current.data.participants[i];
-        const color = PARTICIPANT_COLORS[i];
         const route = current.routes.get(place.id)?.get(i);
-        const group = routeLayers[i];
-        group.clearLayers();
-        if (!route?.legs) {
-            const line = straightLine(p, place, color).addTo(group);
-            if (route?.error) line.bindTooltip(route.error, { sticky: true });
-            return;
-        }
-        route.legs.forEach(leg => {
-            const walking = leg.kind === 'walk' && route.mode === 'transit';
-            const label = leg.kind === 'line'
-                ? `${p.name} · ${leg.mode || 'ligne'} ${leg.line || ''}`
-                : `${p.name} · ${MODE_LABELS[walking ? 'walk' : route.mode]}`;
-            if (!leg.path.length) return;
-            L.polyline(leg.path, walking
-                ? { color, weight: 3, dashArray: '2 6', opacity: 0.9 }
-                : { color, weight: 4, opacity: 0.8 })
-                .bindTooltip(escapeHtml(label), { sticky: true })
-                .addTo(group);
-        });
+        drawPath(routeLayers[i], current.data.participants[i], place, route, PARTICIPANT_COLORS[i]);
     }
 
     function drawSelection(fit) {
         const { data, rows, selected } = current;
         const place = data.candidates[selected];
         resultLayer.clearLayers();
-        drawCenter(data.center);
-        drawCandidates(data.candidates, selected);
+        drawCenter(resultLayer, data.center);
+        drawCandidates(resultLayer, data.candidates, categoryLabels, selected, selectPlace);
         routeLayers = data.participants.map((p, i) => {
             participantMarkers.get(rows[i])
                 ?.bindPopup(`<strong>${escapeHtml(p.name)}</strong><br>${choiceText(place?.choices[i])}`);
@@ -870,102 +567,9 @@ import { escapeHtml } from '../format.js';
         renderCalls();
     }
 
-    // Transitous names the trip's ends START and END
-    const stopName = (name, fallback) => (!name || name === 'START' || name === 'END' ? fallback : name);
-
-    // Readable text on a line's color
-    function textOn(hex) {
-        const [r, g, b] = [1, 3, 5].map(k => parseInt(hex.slice(k, k + 2), 16));
-        return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? '#0C1A2E' : '#FFFFFF';
-    }
-
-    // Steps of a transit trip: departure, walks, lines with direction and stops, arrival
-    function transitSteps(trip, placeName) {
-        const lines = trip.legs.filter(l => l.kind === 'line');
-        const items = [`<li class="trip-step trip-step--time">Départ ${formatClock(trip.departure)}</li>`];
-        trip.legs.forEach((leg, k) => {
-            if (leg.kind === 'walk') {
-                if (leg.seconds < 60) return;
-                const target = k === trip.legs.length - 1 ? placeName : stopName(leg.to, 'l\'arrêt');
-                items.push(`<li class="trip-step trip-step--walk">Marche ${formatDuration(leg.seconds)} jusqu'à ${escapeHtml(target)}</li>`);
-                return;
-            }
-            const badge = leg.color
-                ? `<span class="line-badge" style="background: ${leg.color}; color: ${textOn(leg.color)}">${escapeHtml(leg.line || leg.mode)}</span>`
-                : `<span class="line-badge">${escapeHtml(leg.line || leg.mode)}</span>`;
-            items.push(`<li class="trip-step trip-step--line">
-                ${badge} <strong>${escapeHtml(leg.mode)}${leg.line ? ` ${escapeHtml(leg.line)}` : ''}</strong>
-                ${leg.headsign ? `direction ${escapeHtml(leg.headsign)}` : ''}
-                <span class="trip-step-detail">${escapeHtml(stopName(leg.from, ''))} ${formatClock(leg.departure)}
-                    → ${escapeHtml(stopName(leg.to, ''))} ${formatClock(leg.arrival)}
-                    ${leg.stops != null ? `· ${leg.stops} arrêt${leg.stops > 1 ? 's' : ''}` : ''}</span></li>`);
-        });
-        items.push(`<li class="trip-step trip-step--time">Arrivée ${formatClock(trip.arrival)}`
-            + `${lines.length > 1 ? ` · ${lines.length - 1} correspondance${lines.length > 2 ? 's' : ''}` : ''}`
-            + `${trip.wait >= 60 ? ` · en avance, ${formatDuration(trip.wait)} d'attente comptées` : ''}</li>`);
-        return `<ol class="trip-steps">${items.join('')}</ol>`;
-    }
-
-    function modeDetails(modeTimes, retained) {
-        return Object.entries(modeTimes)
-            .filter(([mode]) => mode !== retained)
-            .map(([mode, t]) => `${MODE_LABELS[mode]} : ${t.seconds != null ? formatDuration(t.seconds) : escapeHtml(t.error)}`)
-            .join(' · ');
-    }
-
-    function tripCard(p, i, place) {
-        const choice = place.choices[i];
-        const others = modeDetails(place.times[i], choice.mode);
-        const trip = choice.mode === 'transit' ? place.times[i].transit.trip : null;
-        return `
-            <article class="trip-card" style="--participant: ${PARTICIPANT_COLORS[i]}">
-                <h3 class="trip-card-title"><span class="location-swatch" style="background: ${PARTICIPANT_COLORS[i]}"></span>
-                    ${escapeHtml(p.name)} <span class="trip-card-mode">${MODE_LABELS[choice.mode]} · ${formatDuration(choice.seconds)}</span></h3>
-                ${trip ? transitSteps(trip, place.name)
-                    : `<p class="trip-card-direct">Trajet direct${choice.mode === 'car' ? ', dont 5 min pour se garer' : ''}.</p>`}
-                ${others ? `<p class="location-muted">Autres modes : ${others}</p>` : ''}
-                ${place.times[i].transit?.failed ? `<p class="location-warning">Transports en commun inconnus pour
-                    ce trajet (${escapeHtml(place.times[i].transit.error)}) : le temps retenu peut être trop long.</p>` : ''}
-            </article>`;
-    }
-
     function renderResults() {
-        const { data, selected } = current;
-        const place = selected != null ? data.candidates[selected] : null;
-        const best = data.best != null ? data.candidates[data.best] : null;
-        const slotText = `${data.slot.from.slice(11)} – ${data.slot.to.slice(11)}`;
-
-        if (!place) {
-            results.innerHTML = `
-                <div class="chart-header"><h2 class="chart-title">Lieu retenu</h2></div>
-                <p class="location-best">${data.candidates.length
-                    ? 'Aucun candidat n\'est atteignable par tous les participants.'
-                    : 'Aucun candidat trouvé à moins de 5 km du barycentre : essayez d\'autres types de lieux.'}</p>`;
-            results.hidden = false;
-            return;
-        }
-
-        const ranked = data.candidates.map((c, j) => ({ c, j }))
-            .sort((a, b) => (a.c.score ?? Infinity) - (b.c.score ?? Infinity));
-        const options = ranked.map(({ c, j }) => `
-            <option value="${j}"${j === selected ? ' selected' : ''}${c.score == null ? ' disabled' : ''}>
-                ${escapeHtml(c.name)} (${categoryLabels[c.category]}) — ${c.score != null ? formatDuration(c.score) : 'injoignable'}${c.incomplete ? ' · incomplet' : ''}${j === data.best ? ' · retenu' : ''}
-            </option>`).join('');
-
-        results.innerHTML = `
-            <div class="chart-header">
-                <h2 class="chart-title">${place === best ? 'Lieu retenu' : 'Lieu choisi'}</h2>
-                <label class="location-field location-place-select">
-                    <span>Autres lieux</span>
-                    <select id="place-select">${options}</select>
-                </label>
-            </div>
-            <p class="location-best"><span class="location-swatch location-swatch--best"></span>
-                <strong>${escapeHtml(place.name)}</strong> (${categoryLabels[place.category]}) — arrivée ${slotText}</p>
-            ${place.incomplete ? `<p class="location-warning">Calcul incomplet pour ce lieu : des trajets en transports
-                en commun ont échoué deux fois${place === best ? ', et aucun lieu au calcul complet n\'est atteignable par tous' : ''}.</p>` : ''}
-            <div class="trip-cards">${data.participants.map((p, i) => tripCard(p, i, place)).join('')}</div>`;
-        results.querySelector('#place-select').addEventListener('change', e => selectPlace(Number(e.target.value)));
+        results.innerHTML = resultsHtml(current.data, current.selected, categoryLabels);
+        results.querySelector('#place-select')?.addEventListener('change', e => selectPlace(Number(e.target.value)));
         results.hidden = false;
     }
 
@@ -987,7 +591,7 @@ import { escapeHtml } from '../format.js';
             setStep('center', 'done', `${event.center.lat.toFixed(4)}, ${event.center.lon.toFixed(4)}`);
             setStep('candidates', 'running', 'recherche autour du barycentre…');
             resultLayer.clearLayers();
-            drawCenter(event.center);
+            drawCenter(resultLayer, event.center);
             state.matrixModes = ORS_MODES.filter(m => participants.some(p => p.modes.includes(m)));
             state.matrixDone = [];
             break;
@@ -996,7 +600,7 @@ import { escapeHtml } from '../format.js';
             setStep('candidates', 'done', `${describeCandidates(event.candidates)} `
                 + `à moins de ${(event.radius / 1000).toLocaleString('fr-FR')} km `
                 + `(données OSM du ${event.sources.osm || '—'}, GTFS du ${event.sources.gtfs})`);
-            drawCandidates(event.candidates);
+            drawCandidates(resultLayer, event.candidates, categoryLabels);
             setStep('matrix', state.matrixModes.length ? 'running' : 'done',
                 state.matrixModes.length ? `0/${state.matrixModes.length} matrice(s)` : 'aucun participant concerné');
             break;
