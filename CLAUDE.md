@@ -44,6 +44,11 @@ Full pipeline: `docs/location-pipeline.md`.
 ## Open topics (update when they move)
 
 - Local search ranking and matching (proposed 2026-10-28, waiting for the user's choice): index type label and city words, exact-word bonus, prefix index,
-  proximity ranking, typo tolerance.
+  proximity ranking, typo tolerance. A sorted word index would cut a search from ~0.6 ms to
+  ~0.01 ms (0.3 ms for 1-letter queries), 22 ms to build: measured, not needed yet.
+- Data quality found 2026-10-28 (not fixed yet): 31 search places have an OSM street but an empty
+  postcode and city (`"3A Cours Rose Dieng-Kuntz,  "`); OSM cities are not normalized (`TOULOUSE`,
+  `Toulouse CEDEX 4`); the address source (OSM or BAN) is not stored; `old_name` aliases may name a
+  previous business at the same place.
 - Transitous is the slow step: (A) cache and pruning, or (C) local Connection Scan Algorithm on Tisséo
   GTFS (~2.6 MB/day of connections, estimated 600–900 lines). Waiting for the user's decision.
