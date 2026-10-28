@@ -108,54 +108,6 @@
         </div>
     </section>
 
-    <!-- Sections travaux, publications et notes masquées temporairement
-    ======= FEATURED PROJECTS =======
-    <section class="section" id="projets" aria-labelledby="projects-heading">
-        <div class="container">
-            <div class="section-header">
-                <p class="section-label">// travaux</p>
-                <h2 class="section-title" id="projects-heading">Projets sélectionnés</h2>
-            </div>
-
-            <div class="projects-grid" id="featured-projects-grid"></div>
-            <div class="section-more">
-                <a href="projects.html">Tous les projets →</a>
-            </div>
-        </div>
-    </section>
-
-    ======= PUBLICATIONS =======
-    <section class="section" id="publications" aria-labelledby="publi-heading">
-        <div class="container">
-            <div class="section-header">
-                <p class="section-label">// recherche</p>
-                <h2 class="section-title" id="publi-heading">Publications</h2>
-            </div>
-            <div class="publications-list" id="publications-list" data-limit="3">
-                <p class="activities-status">Chargement des publications…</p>
-            </div>
-            <div class="section-more">
-                <a href="publications.html">Toutes les publications →</a>
-            </div>
-        </div>
-    </section>
-
-    ======= BLOG PREVIEW =======
-    <section class="section" aria-labelledby="blog-heading">
-        <div class="container">
-            <div class="section-header">
-                <p class="section-label">// notes</p>
-                <h2 class="section-title" id="blog-heading">Notes &amp; articles</h2>
-            </div>
-            <div class="blog-list" id="blog-preview-list"></div>
-            <div class="section-more">
-                <a href="blog.html">Tous les articles →</a>
-            </div>
-        </div>
-    </section>
-
-    -->
-
     <!-- ======= FOOTER ======= -->
     <footer class="footer">
         <div class="footer-inner">
@@ -165,45 +117,7 @@
     </footer>
 
     <script src="js/voronoi.js"></script>
-    <!-- <script src="js/publications.js"></script> -->
     <script src="js/nav.js"></script>
-    <!-- Script des projets et notes, masqué avec les sections
-    <script>
-        const GH_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>`;
-
-        Promise.all([
-            fetch('data/projects.json').then(r => r.json()),
-            fetch('data/posts.json').then(r => r.json())
-        ]).then(([projects, posts]) => {
-            const featuredGrid = document.getElementById('featured-projects-grid');
-            const featured = projects.filter(p => p.featured).slice(0, 3);
-            featuredGrid.innerHTML = featured.map(p => `
-                <article class="project-card">
-                    <h3 class="project-card-title">${p.title}</h3>
-                    <p class="project-card-desc">${p.desc}</p>
-                    <div class="project-tags">${p.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>
-                    <div class="project-links">
-                        <a href="${p.github}" class="project-link" aria-label="Code source sur GitHub">
-                            ${GH_SVG}GitHub
-                        </a>
-                    </div>
-                </article>`).join('');
-
-            const blogList = document.getElementById('blog-preview-list');
-            const recent = posts.slice(0, 3);
-            blogList.innerHTML = recent.length
-                ? recent.map(p => `
-                    <a href="blog/${p.slug}.html" class="blog-item">
-                        <span class="blog-item-date">${p.dateLabel}</span>
-                        <span class="blog-item-title">${p.title}</span>
-                    </a>`).join('')
-                : `<a href="blog.html" class="blog-item">
-                       <span class="blog-item-date">à venir</span>
-                       <span class="blog-item-title">Bientôt...</span>
-                   </a>`;
-        });
-    </script>
-    -->
 </body>
 
 </html>
