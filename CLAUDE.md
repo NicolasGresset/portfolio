@@ -113,3 +113,8 @@ Quotas: monitored per key, possibly paid beyond thresholds one day (doc § 2.3).
   - /api/credits accepts any TMDB id (each new one is a TMDB call): check it against /api/cinema?
   - Vercel Firewall rate limit on /api/* (dashboard, the user's call).
   - Transitous 720/24 h shared counter: deferred to the home server.
+- Ideas for later (stated by the user, 2026-10-28):
+  - Rendez-vous: pick a participant's address by clicking the map (the Géoplateforme reverse
+    geocoding used by "ma position actuelle" would give its address; already allowed by the CSP).
+  - Factor `css/style.css` (~1,700 lines, judged too long).
+  - Make sure the repository holds no dead code.
