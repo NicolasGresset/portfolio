@@ -18,8 +18,10 @@ const RADIUS_STEP_M = 500;
 const RADIUS_MAX_M = 5000;
 const MIN_CANDIDATES = 3;
 
-// Categories the user picks from, and the place kinds of data/pois-toulouse.json they cover
-export const CATEGORIES = { station: ['metro', 'bus'], bar: ['bar'], restaurant: ['restaurant'] };
+// Categories the user picks from, and the place categories of data/pois-toulouse.json they cover:
+// only these places can be candidates, the others are for the address search
+export const CATEGORIES = { station: ['metro', 'bus'], bar: ['amenity=bar'], restaurant: ['amenity=restaurant'] };
+const CANDIDATE_CATEGORIES = new Set(Object.values(CATEGORIES).flat());
 // Maximum candidates per category, by number of categories picked (fewer if fewer nearby)
 const QUOTAS = {
     1: { station: 8, bar: 8, restaurant: 8 },
@@ -27,7 +29,8 @@ const QUOTAS = {
     3: { station: 3, bar: 3, restaurant: 2 },
 };
 
-// Candidate places (OSM bars and restaurants, Tisséo GTFS stops), a static file served with the site
+// Every place (OSM places, Tisséo GTFS stops) and the French label of each category, a static
+// file served with the site
 export async function loadData() {
     const res = await fetch('data/pois-toulouse.json');
     if (!res.ok) throw new Error(`data/pois-toulouse.json failed: ${res.status}`);
@@ -58,34 +61,35 @@ function haversine(a, b) {
 }
 
 // Closest places of the picked categories within radius meters, within each category's quota
-function candidatesWithin(pois, center, categories, radius) {
+function candidatesWithin(places, center, categories, radius) {
     const seen = new Set();
-    const nearby = pois
+    const nearby = places
         .map(p => ({ ...p, distance: Math.round(haversine(center, p)) }))
         .filter(p => p.distance <= radius)
         .sort((a, b) => a.distance - b.distance)
         // A place mapped twice under the same name counts once
-        .filter(c => !seen.has(`${c.kind}:${c.name}`) && seen.add(`${c.kind}:${c.name}`));
+        .filter(c => !seen.has(`${c.category}:${c.name}`) && seen.add(`${c.category}:${c.name}`));
     const quotas = QUOTAS[categories.length];
     return categories.flatMap(category => {
-        const pool = nearby.filter(p => CATEGORIES[category].includes(p.kind));
+        const pool = nearby.filter(p => CATEGORIES[category].includes(p.category));
         const quota = quotas[category];
         if (category !== 'station') return pool.slice(0, quota);
         // Half of the stations (rounded up) go to the metro first, so that the numerous
         // bus stops do not crowd it out; the closest remaining stops fill the rest
-        const metro = pool.filter(p => p.kind === 'metro').slice(0, Math.ceil(quota / 2));
+        const metro = pool.filter(p => p.category === 'metro').slice(0, Math.ceil(quota / 2));
         return [...metro, ...pool.filter(p => !metro.includes(p)).slice(0, quota - metro.length)];
     }).sort((a, b) => a.distance - b.distance);
 }
 
 // The search radius grows by RADIUS_STEP_M until MIN_CANDIDATES are found, up to
 // RADIUS_MAX_M (local data only: no API call, whatever the radius)
-function findCandidates(pois, center, categories) {
+function findCandidates(places, center, categories) {
+    const pool = places.filter(p => CANDIDATE_CATEGORIES.has(p.category));
     let radius = RADIUS_START_M;
-    let candidates = candidatesWithin(pois, center, categories, radius);
+    let candidates = candidatesWithin(pool, center, categories, radius);
     while (candidates.length < MIN_CANDIDATES && radius < RADIUS_MAX_M) {
         radius += RADIUS_STEP_M;
-        candidates = candidatesWithin(pois, center, categories, radius);
+        candidates = candidatesWithin(pool, center, categories, radius);
     }
     return { candidates, radius };
 }
@@ -108,7 +112,7 @@ export async function evaluate({ participants, slot, categories }, keys, data, c
     const base = { date, slot: { from: arriveFrom, to: arriveTo }, center, participants };
     emit({ type: 'start', ...base });
 
-    const { candidates, radius } = findCandidates(data.pois, center, categories);
+    const { candidates, radius } = findCandidates(data.places, center, categories);
     emit({ type: 'candidates', candidates, radius, sources: data.sources });
     if (!candidates.length) {
         emit({ type: 'result', ...base, candidates, best: null });

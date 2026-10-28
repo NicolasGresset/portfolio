@@ -33,22 +33,25 @@ Full pipeline: `docs/location-pipeline.md`.
   > 720 calls / 24 h needs coordination), `keys.js` localStorage.
 - Address search: local instant lookup in `data/pois-toulouse.json` (≥ 2 chars), then IGN Géoplateforme
   completion (≥ 3 chars, Haute-Garonne, addresses and IGN points of interest, no companies).
-- `data/pois-toulouse.json`: bars and restaurants (OSM, Geofabrik Midi-Pyrénées extract + osmium),
-  metro and bus stops (Tisséo GTFS), addresses precomputed with the Géoplateforme bulk reverse geocoder.
-  Bounding box in `data/tisseo-area.json`. `scripts/fetch-pois.js` regenerates places, not addresses yet.
-- `data.places` (search only, never candidates): ~13,800 named OSM offices, shops, crafts and kept amenities
-  with a French type label and aliases (`short_name`…), built by `scripts/build-search-places.js` from an
-  osmium export (commands in its header). File: 2.3 MB raw, ~318 KB brotli, loaded on first address focus.
+- `data/pois-toulouse.json`: one list `places` (~17,500) with one `category` code each (OSM `key=value`
+  such as `amenity=bar`, `office=company`, or GTFS `metro` / `bus`) and a `categories` label table;
+  rules in `docs/location-pipeline.md` § 6. Candidates: `amenity=bar`, `amenity=restaurant`, `metro`,
+  `bus` (only they keep an `id`); everything else is for the address search. Fields: name, lat, lon,
+  address, addressSource (`osm` / `ban`), near, aliases. Built by `scripts/build-places.js` from an
+  osmium export of the Geofabrik extract (commands in its header) + Tisséo GTFS + Géoplateforme bulk
+  reverse. Bounding box in `data/tisseo-area.json`. 2.9 MB raw, ~325 KB brotli, loaded on first address focus.
 - Declined by the user: Photon, a service worker, Tisséo API (key refused), Strasbourg/CTS.
 
 ## Open topics (update when they move)
 
-- Local search ranking and matching (proposed 2026-10-28, waiting for the user's choice): index type label and city words, exact-word bonus, prefix index,
-  proximity ranking, typo tolerance. A sorted word index would cut a search from ~0.6 ms to
+- Local search ranking and matching (proposed 2026-10-28, waiting for the user's choice): index category label
+  and city words, exact-word bonus, prefix index, proximity ranking, typo tolerance. A sorted word index would cut a search from ~0.6 ms to
   ~0.01 ms (0.3 ms for 1-letter queries), 22 ms to build: measured, not needed yet.
-- Data quality found 2026-10-28 (not fixed yet): 31 search places have an OSM street but an empty
-  postcode and city (`"3A Cours Rose Dieng-Kuntz,  "`); OSM cities are not normalized (`TOULOUSE`,
-  `Toulouse CEDEX 4`); the address source (OSM or BAN) is not stored; `old_name` aliases may name a
-  previous business at the same place.
+- Data quality (2026-10-28, not fixed yet): OSM cities are not normalized (`TOULOUSE`,
+  `Toulouse CEDEX 4`); ~30 OSM addresses have no postcode or city (neither OSM nor the BAN gives one);
+  `old_name` aliases may name a previous business at the same place; one place tagged twice in OSM
+  with two categories appears twice ("Biergarten Purpan": biergarten and restaurant), since the merge
+  of duplicates requires the same category.
+- Possibly more candidate categories (pub, biergarten, café): one line in `CATEGORIES`, user's call.
 - Transitous is the slow step: (A) cache and pruning, or (C) local Connection Scan Algorithm on Tisséo
   GTFS (~2.6 MB/day of connections, estimated 600–900 lines). Waiting for the user's decision.

@@ -17,8 +17,10 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
     const SUGGEST_DELAY_MS = 250;
     const ORS_MODES = ['walk', 'bike', 'car'];
     const MODE_LABELS = { walk: 'marche', bike: 'vélo', car: 'voiture', transit: 'transports en commun' };
-    const KIND_LABELS = { bar: 'bar', restaurant: 'restaurant', metro: 'métro', bus: 'arrêt de bus' };
-    const KIND_PLURALS = { bar: 'bars', restaurant: 'restaurants', metro: 'stations de métro', bus: 'arrêts de bus' };
+    // Plurals of the candidate categories; every category's label comes with the data
+    const CATEGORY_PLURALS = {
+        'amenity=bar': 'bars', 'amenity=restaurant': 'restaurants', metro: 'stations de métro', bus: 'arrêts de bus',
+    };
     const PLACE_KINDS = { housenumber: 'adresse', street: 'voie', municipality: 'commune', locality: 'lieu-dit' };
     const COLORS = { candidate: '#7A90AA', best: '#EA580C', center: '#0C1A2E' };
     const STEPS = [
@@ -243,35 +245,36 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         results.hidden = true;
     }
 
-    // Candidate places (with their precomputed addresses), loaded once per page: by the
-    // computation, or by the first address search
+    // Places (with their precomputed addresses) and category labels, loaded once per page: by
+    // the computation, or by the first address search
     let dataPromise = null;
+    let categoryLabels = {};
     const getData = () => {
-        dataPromise = dataPromise || loadData().catch(err => { dataPromise = null; throw err; });
+        dataPromise = dataPromise || loadData()
+            .then(data => { categoryLabels = data.categories; return data; })
+            .catch(err => { dataPromise = null; throw err; });
         return dataPromise;
     };
 
-    // ---- Local place search: candidates (bars, restaurants, stations) and search-only places
-    //      (companies, shops, schools\u2026) by name or short name, instant and without any call
-    //      (each word typed must start a word of the name, accents and case ignored) ----
+    // ---- Local place search: every place with an address (candidates and search-only places
+    //      such as companies, shops, schools…) by name or short name, instant and without any
+    //      call (each word typed must start a word of the name, accents and case ignored) ----
     const normalize = str => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     const words = str => normalize(str).split(/[^a-z0-9]+/).filter(Boolean);
     // Usual abbreviations typed for words of place names
     const ABBREVIATIONS = { st: 'saint', ste: 'sainte', av: 'avenue', bd: 'boulevard', pl: 'place', r: 'rue' };
-    // At equal relevance: metro stations, then bars, restaurants and other places, then the numerous bus stops
-    const KIND_RANK = { metro: 0, bar: 1, restaurant: 1, place: 1, bus: 2 };
-    let placeIndex = null; // [{ place, kind, label, name, words }]
+    // At equal relevance: metro stations, then every other place, then the numerous bus stops
+    const categoryRank = category => (category === 'metro' ? 0 : category === 'bus' ? 2 : 1);
+    let placeIndex = null; // [{ place, rank, name, words }]
 
     function loadPlaceIndex() {
         return getData().then(data => {
-            placeIndex = placeIndex || [
-                ...data.pois.filter(p => p.address).map(p => ({ place: p, kind: p.kind, label: KIND_LABELS[p.kind] })),
-                ...data.places.map(p => ({ place: p, kind: 'place', label: p.type })),
-            ].map(e => ({
-                ...e,
-                name:  normalize(e.place.name),
+            placeIndex = placeIndex || data.places.filter(p => p.address).map(p => ({
+                place: p,
+                rank:  categoryRank(p.category),
+                name:  normalize(p.name),
                 // Words of the name and of its short or former names, each typed word matched in any of them
-                words: [e.place.name, ...e.place.aliases || []].flatMap(words),
+                words: [p.name, ...p.aliases || []].flatMap(words),
             }));
         }).catch(err => console.error(err));
     }
@@ -283,16 +286,16 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
         const matches = (w, t) => w.startsWith(t) || (ABBREVIATIONS[t] && w === ABBREVIATIONS[t]);
         return placeIndex
             .filter(e => tokens.every(t => e.words.some(w => matches(w, t))))
-            // Names starting with the query first, then by kind, then the shortest names
+            // Names starting with the query first, then by category, then the shortest names
             .sort((a, b) => (b.name.startsWith(query) - a.name.startsWith(query))
-                || KIND_RANK[a.kind] - KIND_RANK[b.kind]
+                || a.rank - b.rank
                 || a.name.length - b.name.length)
             .slice(0, MAX_LOCAL_SUGGESTIONS)
-            .map(({ place: p, label }) => ({
+            .map(({ place: p }) => ({
                 label:   `${p.name} — ${p.near ? 'près de ' : ''}${p.address}`,
                 name:    p.name,
                 address: `${p.near ? 'près de ' : ''}${p.address}`,
-                kind:    label,
+                kind:    categoryLabels[p.category],
                 lat:     p.lat,
                 lon:     p.lon,
             }));
@@ -603,8 +606,9 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
 
     function describeCandidates(candidates) {
         const counts = {};
-        candidates.forEach(c => { counts[c.kind] = (counts[c.kind] || 0) + 1; });
-        const parts = Object.entries(counts).map(([kind, n]) => `${n} ${n > 1 ? KIND_PLURALS[kind] : KIND_LABELS[kind]}`);
+        candidates.forEach(c => { counts[c.category] = (counts[c.category] || 0) + 1; });
+        const parts = Object.entries(counts)
+            .map(([category, n]) => `${n} ${n > 1 ? CATEGORY_PLURALS[category] : categoryLabels[category]}`);
         return `${candidates.length} lieu${candidates.length > 1 ? 'x' : ''}${parts.length ? ` : ${parts.join(', ')}` : ''}`;
     }
 
@@ -632,7 +636,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             const marker = L.circleMarker([c.lat, c.lon], isSelected
                 ? { radius: 11, color: COLORS.best, fillOpacity: 0.9, weight: 3 }
                 : { radius: 6, color: COLORS.candidate, fillOpacity: 0.7, weight: 1 })
-                .bindTooltip(`${escapeHtml(c.name)} · ${KIND_LABELS[c.kind]}`
+                .bindTooltip(`${escapeHtml(c.name)} · ${categoryLabels[c.category]}`
                     + (c.score !== undefined ? ` · ${c.score != null ? `total ${formatDuration(c.score)}` : 'injoignable'}` : ''))
                 .addTo(resultLayer);
             if (c.score != null && !isSelected) marker.on('click', () => selectPlace(j));
@@ -791,7 +795,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
             .sort((a, b) => (a.c.score ?? Infinity) - (b.c.score ?? Infinity));
         const options = ranked.map(({ c, j }) => `
             <option value="${j}"${j === selected ? ' selected' : ''}${c.score == null ? ' disabled' : ''}>
-                ${escapeHtml(c.name)} (${KIND_LABELS[c.kind]}) — ${c.score != null ? formatDuration(c.score) : 'injoignable'}${j === data.best ? ' · retenu' : ''}
+                ${escapeHtml(c.name)} (${categoryLabels[c.category]}) — ${c.score != null ? formatDuration(c.score) : 'injoignable'}${j === data.best ? ' · retenu' : ''}
             </option>`).join('');
 
         results.innerHTML = `
@@ -803,7 +807,7 @@ import { loadKeys, saveKeys, clearKeys } from './keys.js';
                 </label>
             </div>
             <p class="location-best"><span class="location-swatch location-swatch--best"></span>
-                <strong>${escapeHtml(place.name)}</strong> (${KIND_LABELS[place.kind]}) — arrivée ${slotText}</p>
+                <strong>${escapeHtml(place.name)}</strong> (${categoryLabels[place.category]}) — arrivée ${slotText}</p>
             <div class="trip-cards">${data.participants.map((p, i) => tripCard(p, i, place)).join('')}</div>`;
         results.querySelector('#place-select').addEventListener('change', e => selectPlace(Number(e.target.value)));
         results.hidden = false;

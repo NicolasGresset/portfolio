@@ -26,22 +26,20 @@ flowchart TB
     subgraph OFFLINE["Offline, run by hand (not deployed)"]
         direction TB
         GEOFABRIK[("Geofabrik<br/>OSM extract Midi-Pyrénées")]:::api
-        OSMIUM["osmium: Tisséo area bbox,<br/>named bars and restaurants"]:::algo
-        OSMPLACES["scripts/build-search-places.js:<br/>named offices, shops, crafts, kept amenities;<br/>same name within 300 m merged;<br/>French type label, short / former names"]:::algo
+        OSMIUM["osmium: Tisséo area bbox,<br/>amenity / office / shop / craft features"]:::algo
+        OSMPLACES["scripts/build-places.js:<br/>named features with a kept category (§ 6);<br/>same category + name within 300 m merged;<br/>short / former names as aliases"]:::algo
         GTFS[("Tisséo GTFS<br/>data.toulouse-metropole.fr")]:::api
-        STOPS["scripts/fetch-pois.js:<br/>stop areas, metro if a metro line stops,<br/>else bus; tram / cable car only dropped"]:::algo
+        STOPS["scripts/build-places.js:<br/>stop areas, metro if a metro line stops,<br/>else bus; tram / cable car only dropped"]:::algo
         REVCSV[("IGN Géoplateforme<br/>reverse/csv, bulk")]:::api
-        ADDR["address of every place (search places:<br/>OSM address when it has a street),<br/>'près de' beyond 30 m"]:::algo
-        GEOFABRIK --> OSMIUM
-        GEOFABRIK --> OSMPLACES
-        OSMPLACES --> REVCSV
+        ADDR["address of every place: OSM address<br/>when it has a street, else nearest BAN address,<br/>'près de' beyond 30 m"]:::algo
+        GEOFABRIK --> OSMIUM --> OSMPLACES
         GTFS --> STOPS
-        OSMIUM --> MERGE["merge + dedupe"]
+        OSMPLACES --> MERGE["one list"]
         STOPS --> MERGE
         MERGE --> REVCSV --> ADDR
     end
 
-    ADDR --> DATA[("data/pois-toulouse.json<br/>pois: candidates (bars, restaurants, metro, bus)<br/>places: search only (~13,800 companies, shops…)<br/>name, position, address")]:::local
+    ADDR --> DATA[("data/pois-toulouse.json<br/>~17,500 places, one category each,<br/>candidates: bars, restaurants, metro, bus<br/>name, position, address")]:::local
 
     subgraph BROWSER["In the browser (js/location/)"]
         direction TB
@@ -96,11 +94,12 @@ flowchart TB
 
     subgraph CANDIDATES["Candidate selection (no API call)"]
         direction TB
-        R1["Haversine distance to the barycenter,<br/>dedupe same kind + name"]:::algo
+        R0["Only the candidate categories:<br/>amenity=bar, amenity=restaurant, metro, bus"]:::algo
+        R1["Haversine distance to the barycenter,<br/>dedupe same category + name"]:::algo
         R2["Radius 1 km, + 500 m while fewer than 3 candidates,<br/>up to 5 km"]:::algo
         R3["Quota per type (maximums):<br/>1 type: 8 · 2 types: 4 each ·<br/>3 types: 3 stations, 3 bars, 2 restaurants"]:::algo
         R4["Stations: half the quota (rounded up)<br/>to the metro first, closest stops fill the rest"]:::algo
-        R1 --> R2 --> R3 --> R4
+        R0 --> R1 --> R2 --> R3 --> R4
     end
     CAND --> CANDIDATES
 
@@ -184,10 +183,42 @@ sequenceDiagram
 
 | Data | Source | Licence / policy |
 |---|---|---|
-| Bars, restaurants | OpenStreetMap via Geofabrik, extract of 2026-10-26 | ODbL |
-| Search-only places (companies, shops, schools…) | OpenStreetMap via Geofabrik, extract of 2026-10-28 | ODbL |
-| Metro stations, bus stops | Tisséo GTFS, 2026-10-27 | ODbL |
-| Place addresses | IGN Géoplateforme (Base Adresse Nationale), 2026-10-27 and 2026-10-28 (search places) | Licence Ouverte |
+| Bars, restaurants, companies, shops, schools… | OpenStreetMap via Geofabrik, data of 2026-10-27 | ODbL |
+| Metro stations, bus stops | Tisséo GTFS, 2026-10-28 | ODbL |
+| Place addresses | OpenStreetMap, else IGN Géoplateforme (Base Adresse Nationale), 2026-10-28 | ODbL / Licence Ouverte |
 | Transit journeys | Transitous (networks' open GTFS) | open-source, non-commercial, light use |
 | Walk, bike, car | openrouteservice | free plan, user's own key |
 | Map tiles | OpenStreetMap | tile usage policy |
+
+## 6. Place categories
+
+Every place of `data/pois-toulouse.json` has exactly one `category` code; the French label of
+each code is in the file's `categories` table. The code depends on where the place comes from
+(`scripts/build-places.js`, "CATEGORY RULES"):
+
+| Source | How the code is set | Examples |
+|---|---|---|
+| Tisséo GTFS stop area | `metro` if at least one metro trip stops at one of its stop points, else `bus` if a bus trip does; stop areas served only by tram or cable car are left out | `metro`, `bus` |
+| OpenStreetMap feature with a `name` | the first tag present among `amenity`, `office`, `shop`, `craft` (in this order) that is kept, written `key=value` | `amenity=bar`, `office=company`, `shop=bakery` |
+
+OSM tags kept:
+
+- `amenity`: only a listed set of values people look for by name (bar, restaurant, school,
+  pharmacy, bank, café, town hall, cinema…); benches, lockers, chargers… are dropped, and the
+  next key is tried.
+- `office`, `shop`, `craft`: every value except `shop=vacant`.
+
+Labels: a listed code gets its own label (`office=company` → "entreprise"); an unlisted
+`office`, `shop` or `craft` value gets the key's label ("bureau", "commerce", "artisan").
+The code always keeps the precise OSM tag, so a label can be refined later without
+regenerating the file's codes.
+
+Candidates: the engine only picks `amenity=bar`, `amenity=restaurant`, `metro` and `bus`
+places (`CATEGORIES` in `engine.js`); every other place is for the address search only. Only
+candidates keep their OSM or GTFS `id` (the engine keys its route cache with it); the ids of
+the other places would weigh a quarter of the file.
+
+Other fields: `name`, `lat`, `lon` (always), `address` (all but ~150 places), `addressSource`
+(`osm`: the place's own OSM address, completed with the BAN postcode and city when missing;
+`ban`: nearest address of the Base Adresse Nationale), `near` (BAN address more than 30 m
+away), `aliases` (OSM `short_name`, `alt_name`, `official_name`, `old_name`).
