@@ -200,6 +200,18 @@ import { escapeHtml } from '../format.js';
 
     const colorOf = row => PARTICIPANT_COLORS[[...list.children].indexOf(row) % PARTICIPANT_COLORS.length];
 
+    // People leaving from a participant's place: a whole number from 1, anything else typed reads as
+    // the nearest one (empty or below 1: 1)
+    const peopleOf = row => Number(row.querySelector('[name="people"]').value);
+    function setPeople(row, value) {
+        const people = Math.max(1, Math.round(Number(value)) || 1);
+        row.querySelector('[name="people"]').value = people;
+        row.querySelector('[data-action="people-less"]').disabled = people === 1;
+        if (people > 1) row.querySelector('.participant-people').classList.add('participant-people--open');
+        updateMarker(row);
+        clearResults();
+    }
+
     function fitParticipants() {
         const points = [...participantMarkers.values()].map(m => m.getLatLng());
         if (points.length === 1) map.setView(points[0], 14);
@@ -227,8 +239,9 @@ import { escapeHtml } from '../format.js';
         // Updated in place: a new icon would drop the drag listener on its element
         const element = marker.setLatLng(latLng).unbindPopup().getElement();
         element.textContent = [...list.children].indexOf(row) + 1;
+        element.dataset.people = peopleOf(row) > 1 ? `×${peopleOf(row)}` : '';
         element.style.background = colorOf(row);
-        element.title = participantLabel(row);
+        element.title = participantLabel(row) + (peopleOf(row) > 1 ? `, ${peopleOf(row)} personnes` : '');
         updateMapHint();
     }
 
@@ -553,10 +566,26 @@ import { escapeHtml } from '../format.js';
                 </div>
                 <span class="participant-hint"></span>
             </div>
-            <div class="participant-modes chips" role="group" aria-label="Modes de transport">
-                ${Object.entries(MODE_LABELS).map(([mode, label]) => `
-                    <label class="chip"><input type="checkbox" name="modes" value="${mode}" tabindex="-1"${defaultModes().includes(mode) ? ' checked' : ''}><span>${label}</span></label>
-                `).join('')}
+            <div class="participant-options">
+                <div class="participant-modes chips" role="group" aria-label="Modes de transport">
+                    ${Object.entries(MODE_LABELS).map(([mode, label]) => `
+                        <label class="chip"><input type="checkbox" name="modes" value="${mode}" tabindex="-1"${defaultModes().includes(mode) ? ' checked' : ''}><span>${label}</span></label>
+                    `).join('')}
+                </div>
+                <!-- People leaving from this place (a team, a company): 1 by default, no upper bound -->
+                <div class="participant-people stepper" role="group" aria-label="Personnes au départ de ce lieu">
+                    <!-- Folded variant only (TEMPORARY, ?personnes=replie, to compare both in use) -->
+                    <button type="button" class="chip people-open" data-action="people-open" tabindex="-1">1 pers.</button>
+                    <button type="button" class="stepper-button" data-action="people-less" tabindex="-1"
+                        aria-label="Une personne de moins" title="Une personne de moins" disabled>−</button>
+                    <input type="number" name="people" value="1" min="1" step="1" inputmode="numeric" tabindex="-1"
+                        aria-label="Nombre de personnes">
+                    <button type="button" class="stepper-button" data-action="people-more" tabindex="-1"
+                        aria-label="Une personne de plus" title="Une personne de plus">+</button>
+                    <!-- Own drawing (a person): no third-party icon -->
+                    <svg class="stepper-unit" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <circle cx="12" cy="7" r="4"/><path d="M4 21a8 8 0 0 1 16 0z"/></svg>
+                </div>
             </div>
             <button type="button" class="location-button location-button--ghost participant-remove" data-action="remove" tabindex="-1"
                 aria-label="Retirer ce participant" title="Retirer ce participant">×</button>`;
@@ -580,6 +609,18 @@ import { escapeHtml } from '../format.js';
         updateSubmit();
     }
 
+    // TEMPORARY, to compare in use: ?personnes=replie folds the people control into a "1 pers."
+    // chip while there is one person, opened by a click and folded again when the focus leaves it
+    if (new URLSearchParams(window.location.search).get('personnes') === 'replie') {
+        list.classList.add('participants--people-folded');
+        list.addEventListener('focusout', e => {
+            const group = e.target.closest('.participant-people');
+            if (group && !group.contains(e.relatedTarget) && peopleOf(group.closest('.participant')) === 1) {
+                group.classList.remove('participant-people--open');
+            }
+        });
+    }
+
     // The participant whose card is used is the one a click on the map places
     list.addEventListener('focusin', e => setActive(e.target.closest('.participant')));
     // pointerdown, before the suggestion chosen with mousedown moves on to the next participant
@@ -589,6 +630,7 @@ import { escapeHtml } from '../format.js';
     });
 
     list.addEventListener('change', e => {
+        if (e.target.name === 'people') return setPeople(e.target.closest('.participant'), e.target.value);
         if (e.target.name !== 'modes') return;
         updateSubmit();
         clearResults();
@@ -598,6 +640,13 @@ import { escapeHtml } from '../format.js';
         const button = e.target.closest('button[data-action]');
         if (!button) return;
         const row = button.closest('.participant');
+        if (button.dataset.action === 'people-open') {
+            button.parentElement.classList.add('participant-people--open');
+            return button.parentElement.querySelector('[data-action="people-more"]').focus();
+        }
+        if (button.dataset.action === 'people-less' || button.dataset.action === 'people-more') {
+            return setPeople(row, peopleOf(row) + (button.dataset.action === 'people-more' ? 1 : -1));
+        }
         if (button.dataset.action === 'remove') {
             participantMarkers.get(row)?.remove();
             participantMarkers.delete(row);
@@ -633,7 +682,7 @@ import { escapeHtml } from '../format.js';
     function readParticipants() {
         const untouched = row => !row.dataset.lat && !row.querySelector('[name="address"]').value.trim();
         const rows = [...list.children].filter(row => !untouched(row));
-        if (!rows.length) throw new Error('Choisissez une adresse pour au moins un participant.');
+        if (rows.length < 2) throw new Error('Choisissez une adresse pour au moins deux participants.');
         return rows.map(row => {
             const label = participantLabel(row);
             const modes = [...row.querySelectorAll('[name="modes"]:checked')].map(c => c.value);
@@ -643,7 +692,8 @@ import { escapeHtml } from '../format.js';
             }
             if (!modes.length) throw new Error(`Choisissez au moins un mode de transport pour le ${label}.`);
             // Label and color go with the participant: an ignored one before it must not shift the others'
-            return { label, modes, lat: Number(row.dataset.lat), lon: Number(row.dataset.lon), color: colorOf(row), row };
+            return { label, modes, people: peopleOf(row), lat: Number(row.dataset.lat), lon: Number(row.dataset.lon),
+                color: colorOf(row), row };
         });
     }
 
@@ -775,7 +825,7 @@ import { escapeHtml } from '../format.js';
         if (!current) return;
         const { data } = current;
         data.metric = checkedValue('score-metric');
-        data.ranking = rankCandidates(data.candidates, data.metric);
+        data.ranking = rankCandidates(data.candidates, data.metric, data.participants.map(p => p.people));
         data.best = data.ranking.length ? data.ranking[0] : null;
         if (data.best != null && data.best !== current.selected) return selectPlace(data.best);
         renderResults();

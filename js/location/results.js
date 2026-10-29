@@ -85,7 +85,7 @@ export function shareText(place, slot) {
     return `${place.name}${address ? `, ${address}` : ''} — arrivée ${slot.from.slice(11)} – ${slot.to.slice(11)}`;
 }
 
-// A participant's trip: numbered disc, lines taken, mode and time, then the details (steps,
+// A participant's trip: numbered disc (and ×3 for 3 people leaving from there), lines taken, mode and time, then the details (steps,
 // other modes), folded in the practical view, shown in the demonstrator view
 function tripCard(p, i, place, demo) {
     const choice = place.choices[i];
@@ -99,7 +99,8 @@ function tripCard(p, i, place, demo) {
     return `
         <article class="trip-card" style="--participant: ${p.color}">
             <h3 class="trip-card-title"><span class="participant-number" aria-hidden="true">${i + 1}</span>
-                <span class="visually-hidden">${escapeHtml(p.label)}</span>
+                ${p.people > 1 ? `<span class="trip-card-people" aria-hidden="true">×${p.people}</span>` : ''}
+                <span class="visually-hidden">${escapeHtml(p.label)}${p.people > 1 ? `, ${p.people} personnes` : ''}</span>
                 ${lines.length ? `<span class="trip-card-lines">${lines.map(lineBadge).join(' → ')}</span>` : ''}
                 <span class="trip-card-mode">${MODE_LABELS[choice.mode]} · ${formatDuration(choice.seconds)}</span></h3>
             ${place.times[i].transit?.failed ? `<p class="location-warning">Transports en commun inconnus pour

@@ -1,6 +1,7 @@
 // engine.js - Meeting point computation, in the browser: candidates around the participants'
-// barycenter, each participant's travel time per mode to arrive today within [slot, slot + 15 min],
-// and the candidates ranked by a score of each participant's fastest time (see SCORES).
+// barycenter (weighted by the people leaving from each starting point), each participant's travel
+// time per mode to arrive today within [slot, slot + 15 min], and the candidates ranked by a score
+// of each participant's fastest time (see SCORES).
 //
 // Progress is reported through emit(event), with event.type:
 //   start -> candidates -> matrix (one per mode) -> transit (progress) -> result
@@ -54,11 +55,12 @@ const addMinutes = (local, minutes) => new Date(Date.parse(`${local.replace(' ',
 // Today's date (YYYY-MM-DD) in Toulouse, whatever the device time zone
 const todayInToulouse = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
 
-// Plain mean of latitudes and longitudes
+// Mean of latitudes and longitudes, each starting point weighted by the people leaving from it
 function barycenter(points) {
+    const people = points.reduce((s, p) => s + p.people, 0);
     return {
-        lat: points.reduce((s, p) => s + p.lat, 0) / points.length,
-        lon: points.reduce((s, p) => s + p.lon, 0) / points.length,
+        lat: points.reduce((s, p) => s + p.people * p.lat, 0) / people,
+        lon: points.reduce((s, p) => s + p.people * p.lon, 0) / people,
     };
 }
 
@@ -113,22 +115,27 @@ function fastest(modeTimes) {
         .reduce((best, [mode, t]) => (!best || t.seconds < best.seconds ? { mode, seconds: t.seconds } : best), null);
 }
 
-// Scores of a candidate from each participant's fastest time in seconds (lower is better):
-// total: the sum, the group's whole travel time; fair: the mean plus the gap between the
-// longest and the shortest trip, so that nobody travels much longer than the others
+// Scores of a candidate from each participant's fastest time in seconds and the people leaving
+// from their starting point (lower is better); every person counts, so a participant of 3 people
+// counts 3 times. total: the sum, the group's whole travel time; fair: the mean plus the gap between
+// the longest and the shortest trip, so that nobody travels much longer than the others (the gap
+// does not depend on the people: theirs is the same trip)
+const totalTime = (seconds, people) => seconds.reduce((s, x, i) => s + people[i] * x, 0);
 export const SCORES = {
-    total: seconds => seconds.reduce((s, x) => s + x, 0),
-    fair:  seconds => seconds.reduce((s, x) => s + x, 0) / seconds.length + Math.max(...seconds) - Math.min(...seconds),
+    total: totalTime,
+    fair:  (seconds, people) => totalTime(seconds, people) / people.reduce((s, n) => s + n, 0)
+        + Math.max(...seconds) - Math.min(...seconds),
 };
 
 // Sets each evaluated candidate's score for the metric (null when someone cannot reach it) and
 // returns the indices of the reachable ones, best first. A candidate is incomplete when a transit
 // journey to it failed: its score may be too high (transit unknown, not impossible), so it comes
 // after the complete ones, unless none is reachable. Equal scores: the lower total first.
-// Called again when the metric changes: the times are kept, no new call is made
-export function rankCandidates(candidates, metric) {
+// Called again when the metric changes: the times are kept, no new call is made.
+// people: the people of each participant
+export function rankCandidates(candidates, metric, people) {
     candidates.forEach(c => {
-        c.score = c.choices.every(Boolean) ? SCORES[metric](c.choices.map(x => x.seconds)) : null;
+        c.score = c.choices.every(Boolean) ? SCORES[metric](c.choices.map(x => x.seconds), people) : null;
     });
     const feasible = candidates.map((c, j) => j).filter(j => candidates[j].score != null);
     const complete = feasible.filter(j => !candidates[j].incomplete);
@@ -136,7 +143,7 @@ export function rankCandidates(candidates, metric) {
         .sort((a, b) => candidates[a].score - candidates[b].score || candidates[a].total - candidates[b].total);
 }
 
-// participants: [{ lat, lon, modes }], slot: "HH:MM",
+// participants: [{ lat, lon, modes, people }], slot: "HH:MM",
 // categories: keys of CATEGORIES (1 to 3), transitEngine: key of TRANSIT_ENGINES,
 // maxCandidates: places evaluated, at most MAX_CANDIDATES, metric: key of SCORES,
 // keys: { ors, tisseo }, data: from loadData(),
@@ -230,14 +237,15 @@ export async function evaluate({ participants, slot, categories, transitEngine =
     });
 
     // Each participant's fastest time; total and gap (longest - shortest) are shown whatever the metric
+    const people = participants.map(p => p.people);
     const evaluated = candidates.map((c, j) => {
         const choices = participants.map((_, i) => fastest(times[i][j]));
         const seconds = choices.every(Boolean) ? choices.map(x => x.seconds) : null;
         const incomplete = participants.some((_, i) => times[i][j].transit?.failed);
         return { ...c, incomplete, choices, times: participants.map((_, i) => times[i][j]),
-            total: seconds && SCORES.total(seconds), spread: seconds && Math.max(...seconds) - Math.min(...seconds) };
+            total: seconds && SCORES.total(seconds, people), spread: seconds && Math.max(...seconds) - Math.min(...seconds) };
     });
-    const ranking = rankCandidates(evaluated, metric);
+    const ranking = rankCandidates(evaluated, metric, people);
     const best = ranking.length ? ranking[0] : null;
 
     emit({ type: 'result', ...base, candidates: evaluated, ranking, best, metric });

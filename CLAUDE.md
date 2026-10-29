@@ -157,9 +157,8 @@ Quotas: monitored per key, possibly paid beyond thresholds one day (doc § 2.3).
 - Next for the Rendez-vous tool (stated by the user 2026-10-29, for a new session):
   - **Diversity of the candidates** (high on the list): the 8 candidates must be spread out (two
     bars 50 m apart were proposed); choose the method with the user first.
-  - **People per starting point**: a discreet option, also in the practical view, default 1 (a team
-    coming from one place, a company meeting). It weighs the barycenter and the score but costs no
-    API call. Open question: how the weight enters "moyenne + écart" (weighted mean; the gap
-    probably unweighted).
-  - Label "participant N" possibly dropped to save room, keeping the colors (idea: a disc in the
-    participant's color with its number, as on the map, the label kept for screen readers).
+  - People per participant: done 2026-10-29 (doc § 1): stepper − [n] + after the modes, no upper
+    bound, every person counts (weighted barycenter, total and mean over people, gap unchanged), at
+    least 2 participants placed. Two variants to compare in use on the user's phone: always visible
+    (default) or folded into a "1 pers." chip (`?personnes=replie`, TEMPORARY: remove the losing one,
+    marked TEMPORARY in `main.js` and `rendez-vous.css`).

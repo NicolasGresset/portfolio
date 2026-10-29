@@ -10,6 +10,7 @@
 /* Form controls and the lists they open (Rendez-vous) */
 .location-field input,
 .location-field select,
+.stepper input,
 .slot-button {
     color: var(--color-text-primary);
     background: var(--color-bg);
@@ -183,7 +184,7 @@
     }
 }
 .participant > .participant-address { grid-area: address; }
-.participant > .participant-modes { grid-area: modes; }
+.participant > .participant-options { grid-area: modes; }
 .participant > [data-action="remove"] { grid-area: remove; justify-self: end; align-self: center; }
 
 .participant-legend {
@@ -234,6 +235,72 @@
     padding-inline: 0.75rem;
     box-shadow: inset 3px 0 0 var(--participant);
     background: color-mix(in srgb, var(--participant) 6%, transparent);
+}
+
+/* Modes, then the people stepper on the same line when there is room (after bus/métro on a phone):
+   the modes' group adds no box of its own */
+.participant-options {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+.participant-options > .participant-modes { display: contents; }
+
+/* People leaving from the participant's place: − [n] + */
+.stepper {
+    display: inline-flex;
+    align-items: center;
+    margin-inline-start: auto;
+    gap: 0.25rem;
+}
+.stepper-button {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 50%;
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    font-size: var(--text-lg);
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover:not(:disabled) { border-color: var(--color-accent); color: var(--color-accent); }
+    &:disabled { opacity: 0.4; cursor: default; }
+    &:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+    @media (max-width: 768px) {
+        width: 44px;
+        height: 44px;
+    }
+}
+.stepper input {
+    width: 3ch;
+    box-sizing: content-box;
+    padding: 0.4rem 0.25rem;
+    font: inherit;
+    font-size: var(--text-md);
+    text-align: center;
+
+    /* 16 px at least, or mobile browsers zoom in on focus */
+    @media (max-width: 768px) { font-size: var(--text-2xl); }
+    &:focus { outline: 2px solid var(--color-accent); outline-offset: -1px; }
+    font-variant-numeric: tabular-nums;
+    /* No spin buttons: the − and + buttons are bigger targets */
+    appearance: textfield;
+
+    &::-webkit-inner-spin-button, &::-webkit-outer-spin-button { appearance: none; margin: 0; }
+}
+.stepper-unit { order: -1; color: var(--color-text-muted); }
+
+/* TEMPORARY folded variant (?personnes=replie): a "1 pers." chip until opened */
+.stepper > .people-open { display: none; }
+.participants--people-folded .participant-people:not(.participant-people--open) {
+    & > * { display: none; }
+    & > .people-open { display: inline-flex; }
 }
 
 /* Under the last participant, on its own line, after the same separator as between participants */
@@ -549,6 +616,20 @@
     font-size: 12px;
     font-weight: 700;
 }
+/* More than one person leaving from there: ×3 next to the disc */
+.participant-marker[data-people]:not([data-people=""])::after {
+    content: attr(data-people);
+    position: absolute;
+    left: calc(100% - 4px);
+    bottom: calc(100% - 8px);
+    padding: 0 4px;
+    border-radius: 999px;
+    background: #FFFFFF;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+    color: #0C1A2E;
+    font-size: 10px;
+    line-height: 14px;
+}
 .participant-marker--draggable { cursor: grab; }
 .location-map--dragging,
 .location-map--dragging .leaflet-interactive { cursor: grabbing; }
@@ -690,6 +771,7 @@ a.location-button { display: inline-flex; align-items: center; text-decoration: 
     font-size: var(--text-xl);
     font-weight: 500;
 }
+.trip-card-people { font-size: var(--text-md); font-weight: 600; color: var(--color-text-secondary); }
 /* Mode and time: what the practical view is read for */
 .trip-card-mode { margin-left: auto; font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-text-primary); }
 .trip-card-lines { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; font-size: var(--text-xs); color: var(--color-text-muted); }

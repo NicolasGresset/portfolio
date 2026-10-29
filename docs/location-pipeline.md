@@ -11,6 +11,16 @@ proposals are numbered pins (map, legend, results), so that places and people do
 the chosen place is orange, and a pin without a number when it is not a proposal (picked in the
 demonstrator view's list); the other candidates (demonstrator view) are small grey pins.
 
+People per participant (2026-10-29): a stepper − [n] + after the modes (1 by default, no upper
+bound, anything typed reads as the nearest whole number from 1), for a team or a company leaving from
+one place with the same modes (people going another way: a second participant at the same place).
+Every person counts as one: the barycenter is weighted by the people, the total is the sum over
+every person (n x the participant's time) and the mean divides by the number of people; the gap
+(longest - shortest) does not change, since the people of one participant share its trip. No API call
+depends on it. Shown as ×n next to the participant's disc on the map and in their trip.
+At least 2 participants with a position are needed. Temporary, to compare in use: `?personnes=replie`
+folds the stepper into a "1 pers." chip while there is one person.
+
 Two views, picked in "Réglages" (`location--demo` class on the layout, CSS only, no new computation):
 
 - **pratique** (default): one progress bar; the map shows the participants and the 3 proposals;
@@ -60,7 +70,7 @@ flowchart TB
     subgraph BROWSER["In the browser (js/location/)"]
         direction TB
         KEY[("ORS key<br/>localStorage")]:::user
-        INPUT["Participants (1 to 5): position + modes<br/>(walk and transit checked by default)<br/>Arrival slot (15 min, today, Europe/Paris)<br/>Place types: stations / bars / restaurants"]:::user
+        INPUT["Participants (2 to 5): position + modes<br/>people (1 by default)<br/>(walk and transit checked by default)<br/>Arrival slot (15 min, today, Europe/Paris)<br/>Place types: stations / bars / restaurants"]:::user
         SEARCH["2. Address search"]
         ENGINE["3. Computation (engine.js)"]
         RESULT["4. Result: chosen place,<br/>trip details, map paths"]
@@ -133,7 +143,7 @@ flowchart TB
     classDef local fill:#DCFCE7,stroke:#15803D,color:#0C1A2E
     classDef algo fill:#FFEDD5,stroke:#EA580C,color:#0C1A2E
 
-    START(["Participants, slot, place types"]) --> CENTER["Barycenter<br/>plain mean of latitudes and longitudes"]:::algo
+    START(["Participants, slot, place types"]) --> CENTER["Barycenter<br/>mean of latitudes and longitudes,<br/>weighted by the people"]:::algo
     CENTER --> CAND["Candidates"]:::algo
     DATA[("pois-toulouse.json")]:::local --> CAND
 
@@ -171,7 +181,7 @@ flowchart TB
     PARK --> SCORE
     WINDOW --> SCORE
 
-    SCORE["Each participant: fastest available mode<br/>Score (Réglages, rankCandidates):<br/>temps total = sum of the times, or<br/>moyenne + écart = mean + (longest - shortest)<br/>(candidate unreachable by one participant: excluded)"]:::algo
+    SCORE["Each participant: fastest available mode<br/>Score (Réglages, rankCandidates), every person counted:<br/>temps total = sum of people x time, or<br/>moyenne + écart = mean per person + (longest - shortest)<br/>(candidate unreachable by one participant: excluded)"]:::algo
     SCORE --> BEST["Ranking: lowest score first, equal scores by lower total;<br/>complete candidates only (incomplete ones only if no complete<br/>one is reachable); the first 3 are the proposals, the first one<br/>is shown; changing the score re-ranks without any call"]:::algo
 
     BEST --> ROUTES["Paths to the chosen place"]
