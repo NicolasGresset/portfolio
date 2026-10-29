@@ -158,8 +158,8 @@
     }
 }
 
-/* One participant: legend, address and remove button, then the modes; narrow card: the legend
-   and remove button on their own line */
+/* One participant: legend (its numbered disc), address and remove button, then the modes;
+   narrow card: the modes under the disc too */
 .participant {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -176,11 +176,10 @@
     border-top: 1px solid var(--color-border);
 
     @container (max-width: 519px) {
-        grid-template-columns: minmax(0, 1fr) auto;
+        column-gap: 0.5rem;
         grid-template-areas:
-            "legend remove"
-            "address address"
-            "modes modes";
+            "legend address remove"
+            "modes modes modes";
     }
 }
 .participant > .participant-address { grid-area: address; }
@@ -191,11 +190,22 @@
     float: left;
     grid-area: legend;
     align-self: start;
-    /* Level with the address text (centered on the input's first line) */
-    line-height: 2.6rem;
+    /* Level with the address input (centered on its height) */
+    display: flex;
+    align-items: center;
+    height: 2.6rem;
+}
+.participant-number {
+    display: grid;
+    place-items: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    background: var(--participant);
+    color: #FFFFFF;
     font-family: var(--font-mono);
     font-size: var(--text-xs);
-    color: var(--color-accent);
+    font-weight: 700;
 }
 
 .participant-address {

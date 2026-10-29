@@ -563,9 +563,10 @@ import { escapeHtml } from '../format.js';
 
     function refreshRows() {
         [...list.children].forEach((row, i) => {
+            // A disc in the participant's color with its number; the label for screen readers only
             const legend = row.querySelector('legend');
-            legend.textContent = `participant ${i + 1}`;
-            legend.style.color = PARTICIPANT_COLORS[i];
+            legend.innerHTML = `<span class="participant-number" aria-hidden="true">${i + 1}</span>
+                <span class="visually-hidden">participant ${i + 1}</span>`;
             row.style.setProperty('--participant', PARTICIPANT_COLORS[i]);
             row.querySelector('[data-action="remove"]').hidden = list.children.length <= 1;
             updateMarker(row);
