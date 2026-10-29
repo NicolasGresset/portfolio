@@ -236,6 +236,10 @@
     background: color-mix(in srgb, var(--participant) 6%, transparent);
 }
 
+/* Under the last participant, on its own line, after the same separator as between participants */
+#participants:has(+ .participant-add:not([hidden])) { border-bottom: 1px solid var(--color-border); }
+.participant-add { margin-top: 0.75rem; }
+
 .participant-hint {
     font-size: var(--text-2xs);
     color: var(--color-text-muted);

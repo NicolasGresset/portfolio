@@ -571,7 +571,7 @@ import { escapeHtml } from '../format.js';
             row.querySelector('[data-action="remove"]').hidden = list.children.length <= 1;
             updateMarker(row);
         });
-        addBtn.disabled = list.children.length >= MAX_PARTICIPANTS;
+        addBtn.hidden = list.children.length >= MAX_PARTICIPANTS;
         updateSubmit();
     }
 
