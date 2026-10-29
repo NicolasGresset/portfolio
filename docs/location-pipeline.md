@@ -7,7 +7,9 @@ keys (openrouteservice, needed only when a participant walks, cycles or drives; 
 
 Participants have no name field (removed 2026-10-29): they are "participant 1, 2…", with a color each,
 shown as a disc in their color with their number (the label is kept for screen readers). The
-proposals are numbered pins (map, legend, results), so that places and people do not look alike.
+proposals are numbered pins (map, legend, results), so that places and people do not look alike;
+the chosen place is orange, and a pin without a number when it is not a proposal (picked in the
+demonstrator view's list); the other candidates (demonstrator view) are small grey pins.
 
 Two views, picked in "Réglages" (`location--demo` class on the layout, CSS only, no new computation):
 

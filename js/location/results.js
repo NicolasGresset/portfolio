@@ -154,7 +154,7 @@ export function resultsHtml(data, selected, categoryLabels, { demo = false } = {
         <p class="location-muted location-ranking">Classées par ${METRIC_LABELS[data.metric]} (réglages) :
             ${data.metric === 'fair' ? 'trajet moyen plus écart entre le plus long et le plus court' : 'somme des trajets de tous'}.</p>
         <ol class="proposals">${proposals.map((j, rank) => proposalButton(data.candidates[j], j, rank, selected)).join('')}</ol>
-        <p class="location-best"><span class="location-swatch location-swatch--best"></span>
+        <p class="location-best"><span class="rank-pin rank-pin--selected location-swatch--rank"></span>
             <strong>${escapeHtml(place.name)}</strong>
             <span>(${categoryLabels[place.category]})${placeAddress(place) ? ` · ${escapeHtml(placeAddress(place))}` : ''} — arrivée ${slotText}</span></p>
         <p class="location-share">

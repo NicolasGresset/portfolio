@@ -21,9 +21,10 @@ export function drawCenter(layer, center) {
         .addTo(layer);
 }
 
-// Candidates. proposals: indices of the best ones, numbered from 1; selected: the one shown, in
-// orange; the others are grey dots, drawn only when all is true (demonstrator view). A click on
-// a marker is not a click on the map (which places the active participant)
+// Candidates. proposals: indices of the best ones, numbered pins from 1; selected: the one shown,
+// an orange pin (numbered if a proposal); the others are small grey pins, drawn only when all is
+// true (demonstrator view). A click on a marker is not a click on the map (which places the active
+// participant)
 export function drawCandidates(layer, candidates, categoryLabels, { selected = null, proposals = [], all = true, onSelect = null } = {}) {
     candidates.forEach((c, j) => {
         const isSelected = j === selected;
@@ -31,17 +32,16 @@ export function drawCandidates(layer, candidates, categoryLabels, { selected = n
         if (rank < 0 && !isSelected && !all) return;
         const tooltip = `${rank >= 0 ? `${rank + 1}. ` : ''}${escapeHtml(c.name)} · ${categoryLabels[c.category]}`
             + (c.choices ? ` · ${c.score != null ? `total ${formatDuration(c.total)}, écart ${formatDuration(c.spread)}` : 'injoignable'}` : '');
-        const marker = rank >= 0
-            ? L.marker([c.lat, c.lon], {
-                // Pin 26 px wide: its tip, 26 / √2 below its center, on the place
-                icon: L.divIcon({ className: `rank-marker${isSelected ? ' rank-marker--selected' : ''}`,
-                    html: `<span class="rank-pin"><span>${rank + 1}</span></span>`,
-                    iconSize: [26, 26], iconAnchor: [13, 31], tooltipAnchor: [0, -13] }),
-                zIndexOffset: isSelected ? 1000 : 500, keyboard: !!onSelect, title: '',
-            })
-            : L.circleMarker([c.lat, c.lon], isSelected
-                ? { radius: 11, color: COLORS.best, fillOpacity: 0.9, weight: 3, bubblingMouseEvents: false }
-                : { radius: 6, color: COLORS.candidate, fillOpacity: 0.7, weight: 1, bubblingMouseEvents: false });
+        // Every place is a pin: numbered for the proposals, orange for the chosen one, small and
+        // grey for the other candidates. Tip of a pin of size s: s / √2 below its center
+        const small = rank < 0 && !isSelected;
+        const size = small ? 14 : 26;
+        const pinClass = `rank-pin${isSelected ? ' rank-pin--selected' : ''}${small ? ' rank-pin--small' : ''}`;
+        const marker = L.marker([c.lat, c.lon], {
+            icon: L.divIcon({ className: 'rank-marker', html: `<span class="${pinClass}"><span>${rank >= 0 ? rank + 1 : ''}</span></span>`,
+                iconSize: [size, size], iconAnchor: [size / 2, Math.round(size / 2 + size / Math.SQRT2)], tooltipAnchor: [0, -size / 2] }),
+            zIndexOffset: isSelected ? 1000 : small ? 0 : 500, keyboard: !!onSelect, title: '',
+        });
         marker.bindTooltip(tooltip).addTo(layer);
         if (onSelect && c.score != null && !isSelected) marker.on('click', () => onSelect(j));
     });

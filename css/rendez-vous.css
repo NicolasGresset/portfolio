@@ -584,8 +584,6 @@
     font-weight: 700;
     vertical-align: middle;
 }
-.location-swatch--candidate   { background: #7A90AA; }
-.location-swatch--best        { background: #EA580C; }
 .location-swatch--center      { background: #0C1A2E; width: 6px; height: 6px; }
 /* Proposal pin, on the map, in its legend and in the results: a square with one sharp corner,
    turned to point down, and its number turned back; places are pins, participants discs */
@@ -611,7 +609,12 @@
     box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
     font-size: 13px;
 }
-.rank-marker--selected > .rank-pin { background: #EA580C; color: #FFFFFF; }
+.rank-pin--selected { background: #EA580C; color: #FFFFFF; }
+/* Candidates that are not proposals (demonstrator view): small and grey, under the others */
+.rank-pin--small,
+.location-swatch--candidate { background: #7A90AA; }
+.rank-marker > .rank-pin--small { --pin-size: 14px; border-width: 1px; }
+.location-swatch--candidate { --pin-size: 10px; }
 
 .location-best { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
 
