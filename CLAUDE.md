@@ -39,7 +39,7 @@ This file is excluded from the deployment (`.vercelignore`) but versioned on Git
 Renamed from "Location" on 2026-10-28; code, CSS classes and docs keep the `location` name, and
 `location.html` only redirects to the new page (old links).
 
-Finds the meeting place minimizing the group's total travel time for an arrival within a 15 min slot,
+Proposes the 3 meeting places with the best score (group's total travel time, or mean + gap) for an arrival within a 15 min slot,
 Toulouse area. Fully client-side; the user's own openrouteservice key is stored in localStorage only.
 Full pipeline: `docs/location-pipeline.md`.
 
@@ -129,3 +129,30 @@ Quotas: monitored per key, possibly paid beyond thresholds one day (doc § 2.3).
   CDNs and use inline scripts, all blocked by the CSP (and Google Fonts sends visitors' IPs to
   Google); `projects.html` and `blog.html` also have inline scripts. Self-host or move them to files,
   or extend the CSP, when they are written.
+- Comparison with togather (meettogather.com), studied 2026-10-29: Astro + React page, Google Maps JS
+  (map, Places autocomplete, key in the page), one backend call `POST api.togather.fr/compute-location`
+  {venueType (free text), locations [{address, transport: walking|bicycling|transit|driving, position}]}
+  -> 3 Google venues (placeId, rating) with each person's time; measured 1.0 s for 2 people. Speed most
+  likely from a server-side Google matrix (all people x all venues in one request) and Places search
+  (inferred from mode names, fields and error messages; the backend is not visible). Score: average
+  time + gap longest-shortest, weighted equally (their page). No arrival time, share link where
+  others add their start, GA4 + PostHog analytics.
+- Transitous `/api/experimental/one-to-many-intermodal` (MOTIS) works: `arriveBy=true` gives many ->
+  one transit durations (and transfers) for an arrival time, so one call per candidate for all
+  participants (C calls instead of P x C); 4.6 s per call (2 calls measured), durations only (no legs:
+  /plan still needed for the chosen place). Not used: estimated ~15 s instead of ~22 s, the real
+  speed-up is the home server.
+- Decided 2026-10-29 after the togather study (the user values open source and open data, no Google
+  API): score picked in the settings (temps total, or moyenne + écart as togather), 3 proposals,
+  links to OpenStreetMap / Google Maps and a share button (no share link to the tool itself),
+  practical (default) and demonstrator views, no name field (the user may change their mind).
+  Settings kept in localStorage (`location.settings`, in `legal.html`).
+- Next for the Rendez-vous tool (stated by the user 2026-10-29, for a new session):
+  - **Diversity of the candidates** (high on the list): the 8 candidates must be spread out (two
+    bars 50 m apart were proposed); choose the method with the user first.
+  - **People per starting point**: a discreet option, also in the practical view, default 1 (a team
+    coming from one place, a company meeting). It weighs the barycenter and the score but costs no
+    API call. Open question: how the weight enters "moyenne + écart" (weighted mean; the gap
+    probably unweighted).
+  - Label "participant N" possibly dropped to save room, keeping the colors (idea: a disc in the
+    participant's color with its number, as on the map, the label kept for screen readers).
