@@ -1,6 +1,7 @@
 // results.js - HTML of the results: the best places (proposals), the chosen one (the best by
 // default, or picked among the proposals, on the map or, in the demonstrator view, in the list of
 // every candidate), links to it on OpenStreetMap and Google Maps, and each participant's trip to it
+// (mode and time, the steps folded in the practical view)
 
 import { escapeHtml } from '../format.js';
 import { MODE_LABELS, formatDuration } from './labels.js';
@@ -25,6 +26,13 @@ function textOn(hex) {
     return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? '#0C1A2E' : '#FFFFFF';
 }
 
+// A line's badge, in its color when known
+function lineBadge(leg) {
+    return leg.color
+        ? `<span class="line-badge" style="background: ${leg.color}; color: ${textOn(leg.color)}">${escapeHtml(leg.line || leg.mode)}</span>`
+        : `<span class="line-badge">${escapeHtml(leg.line || leg.mode)}</span>`;
+}
+
 // Steps of a transit trip: departure, walks, lines with direction and stops, arrival
 function transitSteps(trip, placeName) {
     const lines = trip.legs.filter(l => l.kind === 'line');
@@ -36,11 +44,8 @@ function transitSteps(trip, placeName) {
             items.push(`<li class="trip-step trip-step--walk">Marche ${formatDuration(leg.seconds)} jusqu'à ${escapeHtml(target)}</li>`);
             return;
         }
-        const badge = leg.color
-            ? `<span class="line-badge" style="background: ${leg.color}; color: ${textOn(leg.color)}">${escapeHtml(leg.line || leg.mode)}</span>`
-            : `<span class="line-badge">${escapeHtml(leg.line || leg.mode)}</span>`;
         items.push(`<li class="trip-step trip-step--line">
-            ${badge} <strong>${escapeHtml(leg.mode)}${leg.line ? ` ${escapeHtml(leg.line)}` : ''}</strong>
+            ${lineBadge(leg)} <strong>${escapeHtml(leg.mode)}${leg.line ? ` ${escapeHtml(leg.line)}` : ''}</strong>
             ${leg.headsign ? `direction ${escapeHtml(leg.headsign)}` : ''}
             <span class="trip-step-detail">${escapeHtml(stopName(leg.from, ''))} ${formatClock(leg.departure)}
                 → ${escapeHtml(stopName(leg.to, ''))} ${formatClock(leg.arrival)}
@@ -80,19 +85,26 @@ export function shareText(place, slot) {
     return `${place.name}${address ? `, ${address}` : ''} — arrivée ${slot.from.slice(11)} – ${slot.to.slice(11)}`;
 }
 
-function tripCard(p, i, place) {
+// A participant's trip: numbered disc, lines taken, mode and time, then the details (steps,
+// other modes), folded in the practical view, shown in the demonstrator view
+function tripCard(p, i, place, demo) {
     const choice = place.choices[i];
     const others = modeDetails(place.times[i], choice.mode);
     const trip = choice.mode === 'transit' ? place.times[i].transit.trip : null;
+    const lines = trip ? trip.legs.filter(l => l.kind === 'line') : [];
+    const details = `
+        ${trip ? transitSteps(trip, place.name)
+            : `<p class="trip-card-direct">Trajet direct${choice.mode === 'car' ? ', dont 5 min pour se garer' : ''}.</p>`}
+        ${others ? `<p class="location-muted">Autres modes : ${others}</p>` : ''}`;
     return `
         <article class="trip-card" style="--participant: ${p.color}">
-            <h3 class="trip-card-title"><span class="location-swatch" style="background: ${p.color}"></span>
-                ${escapeHtml(p.label)} <span class="trip-card-mode">${MODE_LABELS[choice.mode]} · ${formatDuration(choice.seconds)}</span></h3>
-            ${trip ? transitSteps(trip, place.name)
-                : `<p class="trip-card-direct">Trajet direct${choice.mode === 'car' ? ', dont 5 min pour se garer' : ''}.</p>`}
-            ${others ? `<p class="location-muted">Autres modes : ${others}</p>` : ''}
+            <h3 class="trip-card-title"><span class="participant-number" aria-hidden="true">${i + 1}</span>
+                <span class="visually-hidden">${escapeHtml(p.label)}</span>
+                ${lines.length ? `<span class="trip-card-lines">${lines.map(lineBadge).join(' → ')}</span>` : ''}
+                <span class="trip-card-mode">${MODE_LABELS[choice.mode]} · ${formatDuration(choice.seconds)}</span></h3>
             ${place.times[i].transit?.failed ? `<p class="location-warning">Transports en commun inconnus pour
                 ce trajet (${escapeHtml(place.times[i].transit.error)}) : le temps retenu peut être trop long.</p>` : ''}
+            ${demo ? details : `<details class="trip-details"><summary>Voir l'itinéraire</summary>${details}</details>`}
         </article>`;
 }
 
@@ -153,5 +165,5 @@ export function resultsHtml(data, selected, categoryLabels, { demo = false } = {
         </p>
         ${place.incomplete ? `<p class="location-warning">Calcul incomplet pour ce lieu : des trajets en transports
             en commun ont échoué deux fois${selected === data.best ? ', et aucun lieu au calcul complet n\'est atteignable par tous' : ''}.</p>` : ''}
-        <div class="trip-cards">${data.participants.map((p, i) => tripCard(p, i, place)).join('')}</div>`;
+        <div class="trip-cards">${data.participants.map((p, i) => tripCard(p, i, place, demo)).join('')}</div>`;
 }

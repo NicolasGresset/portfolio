@@ -5,13 +5,17 @@ ranked list of places. Everything runs in the browser: Vercel only serves static
 keys (openrouteservice, needed only when a participant walks, cycles or drives; Tisséo, optional) are the user's own, kept in `localStorage`
 (key `location.apiKeys`), like the settings (`location.settings`: view, score, number of candidates, transit engine).
 
-Participants have no name field (removed 2026-10-29): they are "participant 1, 2…", with a color each.
+Participants have no name field (removed 2026-10-29): they are "participant 1, 2…", with a color each,
+shown as a disc in their color with their number (the label is kept for screen readers).
 
 Two views, picked in "Réglages" (`location--demo` class on the layout, CSS only, no new computation):
 
 - **pratique** (default): one progress bar; the map shows the participants and the 3 proposals;
+  each participant's trip is one line (mode, time, lines taken), the steps folded under
+  "Voir l'itinéraire" (each person usually follows their own navigation app to the shared address);
 - **démonstrateur**: the computation steps and the "Appels API" panel; the map also shows the
-  barycenter and every other candidate; the results add a list of every candidate with its score.
+  barycenter and every other candidate; the results add a list of every candidate with its score,
+  and the trips' steps are shown unfolded.
 
 The diagrams are [Mermaid](https://mermaid.js.org/) code: GitHub renders them, and any
 Mermaid editor (e.g. https://mermaid.live) can display or export them.

@@ -664,7 +664,18 @@ a.location-button { display: inline-flex; align-items: center; text-decoration: 
     font-size: var(--text-xl);
     font-weight: 500;
 }
-.trip-card-mode { margin-left: auto; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-secondary); }
+/* Mode and time: what the practical view is read for */
+.trip-card-mode { margin-left: auto; font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-text-primary); }
+.trip-card-lines { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; font-size: var(--text-xs); color: var(--color-text-muted); }
+
+/* Practical view: the steps folded under the title */
+.trip-details summary {
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    color: var(--color-text-muted);
+}
+.trip-details[open] summary { margin-bottom: 0.6rem; }
 .trip-card-direct { margin-bottom: 0.5rem; color: var(--color-text-secondary); }
 
 .trip-steps { list-style: none; margin-bottom: 0.6rem; }
