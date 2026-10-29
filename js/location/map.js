@@ -16,18 +16,19 @@ export function createMap(elementId) {
 }
 
 export function drawCenter(layer, center) {
-    L.circleMarker([center.lat, center.lon], { radius: 4, color: COLORS.center, fillOpacity: 1, weight: 1 })
+    L.circleMarker([center.lat, center.lon], { radius: 4, color: COLORS.center, fillOpacity: 1, weight: 1, bubblingMouseEvents: false })
         .bindTooltip('barycentre')
         .addTo(layer);
 }
 
-// Candidates in grey (clickable once evaluated), the selected one in orange
+// Candidates in grey (clickable once evaluated), the selected one in orange; a click on them or
+// on the barycenter is not a click on the map (which places the active participant)
 export function drawCandidates(layer, candidates, categoryLabels, selected = null, onSelect = null) {
     candidates.forEach((c, j) => {
         const isSelected = j === selected;
         const marker = L.circleMarker([c.lat, c.lon], isSelected
-            ? { radius: 11, color: COLORS.best, fillOpacity: 0.9, weight: 3 }
-            : { radius: 6, color: COLORS.candidate, fillOpacity: 0.7, weight: 1 })
+            ? { radius: 11, color: COLORS.best, fillOpacity: 0.9, weight: 3, bubblingMouseEvents: false }
+            : { radius: 6, color: COLORS.candidate, fillOpacity: 0.7, weight: 1, bubblingMouseEvents: false })
             .bindTooltip(`${escapeHtml(c.name)} · ${categoryLabels[c.category]}`
                 + (c.score !== undefined ? ` · ${c.score != null ? `total ${formatDuration(c.score)}` : 'injoignable'}` : ''))
             .addTo(layer);

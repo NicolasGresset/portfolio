@@ -78,7 +78,19 @@ flowchart LR
     BROWSERGEO -->|"at once"| POS
     BROWSERGEO -->|"then"| REVERSE[("Géoplateforme reverse<br/>1 call, label only")]:::api
     REVERSE -.->|"address shown when it arrives"| POS
+    MAPCLICK["Click on the map<br/>(active participant)<br/>or drag of a participant's<br/>point (computers only)"]:::user -->|"at once, exact point"| POS
+    MAPCLICK -->|"then"| REVERSE
 ```
+
+Placing on the map: the *active* participant (highlighted card, named above the map) is the one
+whose card was focused or touched last; at load, the first one. Once it is placed, by a suggestion,
+"ma position actuelle" or the map, the next participant without a position becomes active, none if
+all are placed, and none once the computation starts, so that a click on the result map moves
+nobody. A single click waits 300 ms: a double click (or double tap) only zooms. Clicks on the
+participants', candidates' and barycenter's points do not reach the map. On computers
+(`pointer: fine`), a participant's point can be dragged (by hand, Leaflet only drags image
+markers); not on touch screens, where it would fight with panning. The map does not recenter
+after a map placement.
 
 Score of a place (constants at the top of `search.js`, starting values to tune):
 
@@ -197,7 +209,7 @@ sequenceDiagram
 | Transitous plan | `T` × `C` ≤ 40 | > 720 / 24 h: coordinate with Transitous |
 | Tisséo journeys (instead of Transitous) | 2 × `T` × `C` ≤ 80 | per key, monitored by Tisséo; paid beyond thresholds if they ever set some |
 | Géoplateforme completion | 1 per pause while typing (≥ 3 chars) | none stated |
-| Géoplateforme reverse | 1 per "ma position actuelle" | none stated |
+| Géoplateforme reverse | 1 per "ma position actuelle", map click or drag of a point | none stated |
 | Local data | 0 (one static file, loaded once) | — |
 
 Transitous answer size (measured 2026-10-28 on 12 trips, 18:00–18:15 slot): by default `/plan`

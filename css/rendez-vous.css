@@ -132,6 +132,15 @@
 
 .participant-address { position: relative; }
 
+/* Participant placed by the next click on the map: its color on the left; the negative margin
+   keeps the card's content aligned with the rest of the form */
+.participant--active {
+    margin-inline: -0.75rem;
+    padding-inline: 0.75rem;
+    box-shadow: inset 3px 0 0 var(--participant);
+    background: color-mix(in srgb, var(--participant) 6%, transparent);
+}
+
 .participant-hint { font-size: var(--text-2xs); color: var(--color-text-muted); }
 .participant--located .participant-hint { color: var(--color-green); }
 .participant--located .participant-address input { border-color: var(--color-green); }
@@ -399,6 +408,11 @@
         order: 3;
     }
 }
+.location-map-hint { margin-bottom: 0.5rem; font-size: var(--text-sm); }
+.location-map--picking:not(.leaflet-dragging) { cursor: crosshair; }
+.participant-marker { cursor: grab; }
+.location-map--dragging,
+.location-map--dragging .leaflet-interactive { cursor: grabbing; }
 .location-map {
     height: 440px;
     border-radius: var(--radius-md);

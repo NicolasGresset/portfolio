@@ -125,8 +125,13 @@ import { escapeHtml } from '../format.js';
     // ---- Arrival slot (slots.js) ----
     const slotValue = slotPicker(slot, document.getElementById('slot-options'));
 
+    // Computers (mouse or touchpad): keyboard flow between the fields, draggable participant points
+    const finePointer = window.matchMedia('(pointer: fine)').matches;
+
     // ---- Map (map.js) ----
     const map = createMap('location-map');
+    const mapElement = document.getElementById('location-map');
+    const mapHint = document.getElementById('map-hint');
     const participantMarkers = new Map(); // participant row -> marker
     const resultLayer = L.layerGroup().addTo(map);
     let routeLayers = [];    // per participant: layer group holding its path to the selected place
@@ -149,15 +154,114 @@ import { escapeHtml } from '../format.js';
         let marker = participantMarkers.get(row);
         if (!row.dataset.lat) {
             if (marker) { marker.remove(); participantMarkers.delete(row); }
-            return;
+            return updateMapHint();
         }
         const latLng = [Number(row.dataset.lat), Number(row.dataset.lon)];
         if (!marker) {
-            marker = L.circleMarker(latLng, { radius: 8, fillOpacity: 0.9, weight: 2 }).addTo(map);
+            // A click on a participant's point does not place the active participant there
+            marker = L.circleMarker(latLng, {
+                radius: 8, fillOpacity: 0.9, weight: 2, bubblingMouseEvents: false,
+                className: finePointer ? 'participant-marker' : '',
+            }).addTo(map);
+            if (finePointer) makeDraggable(marker, row);
             participantMarkers.set(row, marker);
         }
         marker.setLatLng(latLng).setStyle({ color: colorOf(row) }).unbindPopup()
             .bindTooltip(escapeHtml(participantName(row)), { permanent: true, direction: 'top', offset: [0, -8] });
+        updateMapHint();
+    }
+
+    // ---- Placing participants on the map: a click places the active participant (the one
+    //      whose card was used last), dragging a participant's point moves it (computers only) ----
+    const DOUBLE_CLICK_MS = 300;
+    const DRAG_THRESHOLD_PX = 3;
+    let activeRow = null;
+    let clickTimer = null;
+    let dragJustEnded = false;
+
+    function setActive(row) {
+        activeRow = row;
+        [...list.children].forEach(r => r.classList.toggle('participant--active', r === row));
+        mapElement.classList.toggle('location-map--picking', !!row);
+        updateMapHint();
+    }
+
+    function updateMapHint() {
+        const dragHint = finePointer && participantMarkers.size ? ' Glissez un point pour le déplacer.' : '';
+        if (!activeRow) {
+            mapHint.textContent = `Choisissez un participant pour le placer sur la carte.${dragHint}`;
+            return;
+        }
+        const name = document.createElement('strong');
+        name.textContent = participantName(activeRow);
+        name.style.color = colorOf(activeRow);
+        mapHint.replaceChildren('Cliquez sur la carte pour placer ', name, `.${dragHint}`);
+    }
+
+    // First participant without a position after row (then from the top), null if all are placed
+    function nextToFill(row) {
+        const rows = [...list.children];
+        const start = rows.indexOf(row) + 1;
+        return [...rows.slice(start), ...rows.slice(0, start)].find(r => !r.dataset.lat) || null;
+    }
+
+    // Once the active participant is placed, the next one to fill becomes active
+    function placed(row) {
+        if (activeRow === row) setActive(nextToFill(row));
+    }
+
+    // The exact position is kept at once; the address, which only describes it, follows
+    async function placeAt(row, lat, lon, fallbackLabel, options) {
+        setPosition(row, { lat, lon, label: `${fallbackLabel} (adresse en cours…)` }, options);
+        placed(row);
+        const label = await reverseGeocode(lat, lon);
+        if (row.dataset.lat !== String(lat) || row.dataset.lon !== String(lon)) return; // moved meanwhile
+        row.querySelector('[name="address"]').value = label || fallbackLabel;
+        updateSummary(row);
+    }
+
+    // A double click (or double tap) only zooms: a single click waits to be sure it is one
+    map.on('click', e => {
+        if (dragJustEnded) return;
+        if (clickTimer) {
+            clearTimeout(clickTimer);
+            clickTimer = null;
+            return;
+        }
+        clickTimer = setTimeout(() => {
+            clickTimer = null;
+            // The map does not move under the cursor: the clicked point stays in view
+            if (activeRow) placeAt(activeRow, e.latlng.lat, e.latlng.lng, 'point sur la carte', { fit: false });
+        }, DOUBLE_CLICK_MS);
+    });
+
+    // Leaflet only drags its image markers: a participant's circle follows the mouse by hand,
+    // listened on its own element so that the map does not pan at the same time
+    function makeDraggable(marker, row) {
+        marker.getElement().addEventListener('mousedown', down => {
+            if (down.button !== 0) return;
+            down.preventDefault();
+            down.stopPropagation();
+            const start = marker.getLatLng();
+            let moved = false;
+            mapElement.classList.add('location-map--dragging');
+            const move = e => {
+                moved = moved || Math.hypot(e.clientX - down.clientX, e.clientY - down.clientY) > DRAG_THRESHOLD_PX;
+                if (moved) marker.setLatLng(map.mouseEventToLatLng(e));
+            };
+            const up = () => {
+                document.removeEventListener('mousemove', move);
+                mapElement.classList.remove('location-map--dragging');
+                if (!moved) return marker.setLatLng(start);
+                // The click that follows a drop is not a click on the map
+                dragJustEnded = true;
+                setTimeout(() => { dragJustEnded = false; });
+                const { lat, lng } = marker.getLatLng();
+                placeAt(row, lat, lng, 'point sur la carte', { fit: false });
+            };
+            document.addEventListener('mousemove', move);
+            document.addEventListener('mouseup', up, { once: true });
+        });
     }
 
     // Any change to the participants makes the displayed result stale
@@ -238,7 +342,8 @@ import { escapeHtml } from '../format.js';
         }
     }
 
-    function setPosition(row, place) {
+    // fit: false when the position was picked on the map, which then stays where it is
+    function setPosition(row, place, { fit = true } = {}) {
         if (place) {
             row.dataset.lat = place.lat;
             row.dataset.lon = place.lon;
@@ -252,11 +357,11 @@ import { escapeHtml } from '../format.js';
         row.classList.toggle('participant--collapsed', !!place);
         row.querySelector('.participant-hint').textContent = place
             ? '✓ position enregistrée'
-            : 'choisissez une proposition dans la liste';
+            : 'choisissez une proposition dans la liste ou cliquez sur la carte';
         updateSummary(row);
         updateMarker(row);
         clearResults();
-        if (place) fitParticipants();
+        if (place && fit) fitParticipants();
     }
 
     function attachAutocomplete(row) {
@@ -281,6 +386,7 @@ import { escapeHtml } from '../format.js';
         const choose = index => {
             if (!options[index]) return;
             setPosition(row, options[index]);
+            placed(row);
             close();
             focusNextParticipant(row);
         };
@@ -348,7 +454,6 @@ import { escapeHtml } from '../format.js';
     // Keyboard flow on computers: Tab goes from name to address to the next name; Enter in a
     // name goes to its address; choosing an address goes to the next participant to fill,
     // or to "Trouver le lieu". Not on touch screens, where focusing opens the keyboard.
-    const finePointer = window.matchMedia('(pointer: fine)').matches;
 
     function focusNextParticipant(row) {
         if (!finePointer) return;
@@ -378,7 +483,7 @@ import { escapeHtml } from '../format.js';
                     autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false"
                     aria-controls="address-options-${uid}">
                 <ul class="address-options" id="address-options-${uid}" role="listbox" hidden></ul>
-                <span class="participant-hint">choisissez une proposition dans la liste</span>
+                <span class="participant-hint">choisissez une proposition dans la liste ou cliquez sur la carte</span>
             </div>
             <button type="button" class="location-button" data-action="locate" tabindex="-1">ma position actuelle</button>
             <div class="participant-modes chips" role="group" aria-label="Modes de transport">
@@ -405,6 +510,7 @@ import { escapeHtml } from '../format.js';
             const legend = row.querySelector('legend');
             legend.textContent = `participant ${i + 1}`;
             legend.style.color = PARTICIPANT_COLORS[i];
+            row.style.setProperty('--participant', PARTICIPANT_COLORS[i]);
             row.querySelector('[name="name"]').placeholder = `Participant ${i + 1}`;
             row.querySelector('[data-action="remove"]').hidden = list.children.length <= 1;
             updateSummary(row);
@@ -412,6 +518,14 @@ import { escapeHtml } from '../format.js';
         });
         addBtn.disabled = list.children.length >= MAX_PARTICIPANTS;
     }
+
+    // The participant whose card is used is the one a click on the map places
+    list.addEventListener('focusin', e => setActive(e.target.closest('.participant')));
+    // pointerdown, before the suggestion chosen with mousedown moves on to the next participant
+    list.addEventListener('pointerdown', e => {
+        const row = e.target.closest('.participant');
+        if (row && row !== activeRow) setActive(row);
+    });
 
     list.addEventListener('keydown', e => {
         if (e.key !== 'Enter' || e.target.name !== 'name') return;
@@ -445,20 +559,15 @@ import { escapeHtml } from '../format.js';
             participantMarkers.delete(row);
             row.remove();
             refreshRows();
+            if (activeRow === row) setActive(nextToFill(null));
             clearResults();
             return;
         }
         if (!navigator.geolocation) return setStatus('Géolocalisation non disponible dans ce navigateur.');
         button.disabled = true;
-        navigator.geolocation.getCurrentPosition(async pos => {
-            const { latitude: lat, longitude: lon } = pos.coords;
-            // The exact position is kept at once; the address, which only describes it, follows
-            setPosition(row, { lat, lon, label: 'ma position (adresse en cours…)' });
+        navigator.geolocation.getCurrentPosition(pos => {
             button.disabled = false;
-            const label = await reverseGeocode(lat, lon);
-            if (row.dataset.lat !== String(lat) || row.dataset.lon !== String(lon)) return; // edited meanwhile
-            row.querySelector('[name="address"]').value = label || 'ma position actuelle';
-            updateSummary(row);
+            placeAt(row, pos.coords.latitude, pos.coords.longitude, 'ma position actuelle');
         }, () => {
             setStatus('Position refusée ou introuvable.');
             button.disabled = false;
@@ -467,10 +576,12 @@ import { escapeHtml } from '../format.js';
 
     addBtn.addEventListener('click', () => {
         const row = addParticipant();
+        setActive(row);
         if (finePointer) row.querySelector('[name="name"]').focus();
     });
     const firstRow = addParticipant();
     addParticipant();
+    setActive(firstRow);
     if (finePointer) firstRow.querySelector('[name="name"]').focus();
 
     function readParticipants() {
@@ -479,7 +590,7 @@ import { escapeHtml } from '../format.js';
             const modes = [...row.querySelectorAll('[name="modes"]:checked')].map(c => c.value);
             if (!row.dataset.lat) {
                 row.querySelector('[name="address"]').focus();
-                throw new Error(`Choisissez une adresse dans la liste (ou « ma position actuelle ») pour ${name}.`);
+                throw new Error(`Choisissez une adresse dans la liste, un point sur la carte ou « ma position actuelle » pour ${name}.`);
             }
             if (!modes.length) throw new Error(`Choisissez au moins un mode de transport pour ${name}.`);
             return { name, modes, lat: Number(row.dataset.lat), lon: Number(row.dataset.lon), row };
@@ -670,6 +781,7 @@ import { escapeHtml } from '../format.js';
         if (!categories.length) return setStatus('Choisissez au moins un type de lieu.');
 
         setStatus('');
+        setActive(null); // a click on the result map no longer moves anyone
         clearResults();
         resetSteps();
         scrollToSection(document.getElementById('location-progress'));

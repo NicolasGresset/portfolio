@@ -105,6 +105,10 @@ Quotas: monitored per key, possibly paid beyond thresholds one day (doc § 2.3).
   reproduced; most likely a failed Transitous call silently replaced by walking): 1 retry after 2 s,
   failures counted in the progress, failed candidates marked incomplete and chosen only if nothing
   complete is reachable. Arriving before the slot is accepted, the wait counted in the time.
+- Placing on the map (2026-10-29): a click places the *active* participant (last card focused or
+  touched, then the next one to fill; none during and after a computation), a double click only
+  zooms, points draggable on computers only (the user feared it would misbehave on phones). Doc § 2.
+  Not yet tried on the user's phone.
 - Possibly more candidate categories (pub, biergarten, café): one line in `CATEGORIES`, user's call.
 - Transitous is the slow step: (A) cache and pruning, or (C) local Connection Scan Algorithm on Tisséo
   GTFS (~2.6 MB/day of connections, estimated 600–900 lines). Waiting for the user's decision.
@@ -116,8 +120,6 @@ Quotas: monitored per key, possibly paid beyond thresholds one day (doc § 2.3).
   - Vercel Firewall rate limit on /api/* (dashboard, the user's call).
   - Transitous 720/24 h shared counter: deferred to the home server.
 - Ideas for later (stated by the user, 2026-10-28):
-  - Rendez-vous: pick a participant's address by clicking the map (the Géoplateforme reverse
-    geocoding used by "ma position actuelle" would give its address; already allowed by the CSP).
   - Make sure the repository holds no dead code.
 - CSS refactored 2026-10-28 (dead rules removed, 7-step font size scale `--text-2xs`…`--text-2xl`,
   color / radius variables, shared components in `base.css`, one file per page, mobile rules nested
