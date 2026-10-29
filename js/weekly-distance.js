@@ -8,17 +8,19 @@ import { sportData } from './sport.js';
 
     const SVG_NS = 'http://www.w3.org/2000/svg';
     const HEIGHT = 240;
-    const MARGIN = { top: 20, right: 8, bottom: 28, left: 36 };
+    const MARGIN = { top: 20, right: 8, bottom: 28 }; // left: from the widest y-axis label
+    const TICK_GAP = 6; // px between a y-axis label and the plot
     const MAX_BAR = 24;
     const RADIUS = 4;
     const GAP = 2;
     const SERIES = ['easy', 'quality']; // bottom to top, colors in css/sport.css
     const LABEL_W = 52; // px needed by a week label such as "14 sept."
+    const VALUE_MAX_SHARE = 0.7; // totals keep their decimal while no wider than a column (70 % of a week)
 
     const formatWeek = iso => new Date(`${iso}T00:00:00Z`)
         .toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
-    const formatKm = km => km.toFixed(1).replace('.', ',');
+    const formatKm = (km, decimals) => km.toFixed(decimals).replace('.', ',');
 
     // Round the axis max up to 1, 2 or 5 x 10^n so ticks land on clean numbers
     function niceMax(value) {
@@ -41,15 +43,19 @@ import { sportData } from './sport.js';
         return `M${x},${y + h} V${y + r} Q${x},${y} ${x + r},${y} H${x + w - r} Q${x + w},${y} ${x + w},${y + r} V${y + h} Z`;
     }
 
+    // Width of a label as drawn, measured in the chart itself (fonts and the system's text size included)
+    function textWidth(svg, text, cls) {
+        const node = el('text', { class: cls, visibility: 'hidden' }, svg);
+        node.textContent = text;
+        const w = node.getComputedTextLength();
+        node.remove();
+        return w;
+    }
+
     function render(weeks) {
         const width = plot.clientWidth;
-        const innerW = width - MARGIN.left - MARGIN.right;
-        const innerH = HEIGHT - MARGIN.top - MARGIN.bottom;
-        const band = innerW / weeks.length;
-        const barW = Math.min(MAX_BAR, band * 0.7);
         const total = w => w.easy + w.quality;
         const yMax = niceMax(Math.max(...weeks.map(total)));
-        const y = v => MARGIN.top + innerH - (v / yMax) * innerH;
 
         plot.innerHTML = '';
         const svg = el('svg', {
@@ -57,11 +63,22 @@ import { sportData } from './sport.js';
             'aria-label': `Kilomètres de course par semaine sur les ${weeks.length} dernières semaines`,
         }, plot);
 
+        // The y-axis takes only the room its widest label needs (the top one)
+        const left = Math.ceil(textWidth(svg, String(yMax), 'chart-tick')) + TICK_GAP;
+        const innerW = width - left - MARGIN.right;
+        const innerH = HEIGHT - MARGIN.top - MARGIN.bottom;
+        const band = innerW / weeks.length;
+        const barW = Math.min(MAX_BAR, band * 0.7);
+        const y = v => MARGIN.top + innerH - (v / yMax) * innerH;
+        // Narrow chart: totals rounded to the km, so that they stay about as wide as their column
+        const decimals = Math.max(...weeks.map(w => textWidth(svg, formatKm(total(w), 1), 'chart-value')))
+            <= band * VALUE_MAX_SHARE ? 1 : 0;
+
         // Gridlines and y-axis ticks
         for (let i = 0; i <= 4; i++) {
             const v = (yMax / 4) * i;
-            el('line', { x1: MARGIN.left, x2: width - MARGIN.right, y1: y(v), y2: y(v), class: 'chart-grid' }, svg);
-            el('text', { x: MARGIN.left - 8, y: y(v), class: 'chart-tick', 'text-anchor': 'end', 'dominant-baseline': 'middle' }, svg)
+            el('line', { x1: left, x2: width - MARGIN.right, y1: y(v), y2: y(v), class: 'chart-grid' }, svg);
+            el('text', { x: left - TICK_GAP, y: y(v), class: 'chart-tick', 'text-anchor': 'end', 'dominant-baseline': 'middle' }, svg)
                 .textContent = Math.round(v);
         }
 
@@ -69,7 +86,7 @@ import { sportData } from './sport.js';
         const labelStep = Math.ceil(LABEL_W / band);
 
         weeks.forEach((w, i) => {
-            const cx = MARGIN.left + band * i + band / 2;
+            const cx = left + band * i + band / 2;
             // Stack bottom-up with a surface gap between segments
             const present = SERIES.filter(k => w[k] > 0);
             let base = 0;
@@ -86,7 +103,7 @@ import { sportData } from './sport.js';
             });
             if (base > 0) {
                 el('text', { x: cx, y: y(base) - 6, class: 'chart-value', 'text-anchor': 'middle' }, svg)
-                    .textContent = formatKm(base);
+                    .textContent = formatKm(base, decimals);
             }
             if ((weeks.length - 1 - i) % labelStep === 0) {
                 el('text', { x: cx, y: HEIGHT - 8, class: 'chart-tick', 'text-anchor': 'middle' }, svg)

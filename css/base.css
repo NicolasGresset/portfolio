@@ -314,6 +314,13 @@ img { max-width: 100%; display: block; }
     margin-bottom: 1rem;
 }
 
+/* Less padding on phones: the charts need the width */
+.chart-card {
+    @media (max-width: 768px) {
+        padding: 1rem;
+    }
+}
+
 .chart-plot {
     position: relative;
     min-height: 240px;
