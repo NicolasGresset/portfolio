@@ -57,10 +57,33 @@
     font-size: var(--text-md);
 }
 
-.location-keys { margin-bottom: 1.5rem; }
-.location-keys summary { cursor: pointer; }
+/* Keys: one compact line with their state, the form only when unfolded */
+.location-keys {
+    margin-bottom: 1.5rem;
+    padding-block: 0;
+
+    &[open] { padding-bottom: 1.25rem; }
+}
+/* The whole line can be tapped (44 px at least), not only its text */
+.location-keys summary {
+    min-height: 44px;
+    padding-block: 0.65rem;
+    cursor: pointer;
+}
+.location-keys-summary {
+    margin-left: 0.5rem;
+    font-family: var(--font-sans);
+    font-size: var(--text-md);
+    font-weight: 400;
+    color: var(--color-text-muted);
+}
 .location-keys-form { display: grid; gap: 0.9rem; margin-top: 1rem; max-width: 40rem; font-size: var(--text-md); }
 .location-keys-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+/* Settings below the keys: transit engine, number of candidates (a digit: a narrow list) */
+.location-candidates { margin-top: 0.25rem; }
+.location-field.location-candidates select { width: 5rem; align-self: start; }
+/* The transit engine, below the keys */
+.location-keys .location-categories { margin-top: 1rem; border-top: 1px solid var(--color-border); }
 
 .page-header--compact {
     padding: calc(var(--nav-height) + 2rem) 0 1.5rem;
@@ -71,66 +94,128 @@
     }
 }
 .page-header--compact .page-header-intro { margin-top: 0.5rem; }
+/* Large screens: a smaller title with the intro on its line */
+@media (min-width: 1200px) {
+    .page-header--compact { padding: calc(var(--nav-height) + 1.25rem) 0 1rem; }
+    .page-header--compact .container { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 1.5rem; }
+    .page-header--compact .page-header-label { flex-basis: 100%; }
+    .page-header--compact .page-header-title { font-size: 1.8rem; }
+    .page-header--compact .page-header-intro { margin-top: 0; }
+}
 
 /* Sections are flex items so that the results can come before the map on phones */
-.location-layout { display: flex; flex-direction: column; }
+.location-layout {
+    display: flex;
+    flex-direction: column;
+    /* Above the footer (also z-index 1, later in the page): the slot and address lists may
+       reach over it on a short page */
+    z-index: 2;
+}
+
+/* Large screens: form, progress and results on the left; the map on the right, staying in view
+   while the page scrolls. The page (navigation and footer included) is wider than the others to
+   give both room */
+@media (min-width: 1200px) {
+    .page-wide { --max-width: 1440px; }
+    .location-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        column-gap: 1.5rem;
+        align-items: start;
+    }
+    .location-layout > *,
+    .location-form > * { grid-column: 1; }
+    .location-layout > .location-map-card {
+        grid-column: 2;
+        grid-row: 1 / span 10;
+        position: sticky;
+        top: calc(var(--nav-height) + 1rem);
+    }
+    /* The map's card fits in the screen next to the footer: at the bottom of a short page, it
+       would otherwise be pushed up with the end of the grid, its header under the navigation */
+    .location-layout .location-map { height: calc(100vh - var(--nav-height) - 18rem); }
+}
 /* Auto-scrolled sections stop below the fixed navigation */
 #location-progress,
 #location-results { scroll-margin-top: calc(var(--nav-height) + 1rem); }
 
-.location-form { margin-bottom: 1.5rem; }
+/* The participants and meeting cards make one form: it adds no box of its own, so its cards
+   are laid out with the page's other cards */
+.location-form { display: contents; }
+.location-card {
+    margin-bottom: 1.5rem;
+    /* Layouts below follow the card's own width: it may share the screen with the map */
+    container-type: inline-size;
+}
+.location-card-hint { margin: -0.5rem 0 0.75rem; }
 
-.participant {
-    display: grid;
-    grid-template-columns: minmax(8rem, 1fr) minmax(12rem, 2.5fr) auto;
-    align-items: start;
-    gap: 0.75rem 1rem;
-    /* A fieldset never gets narrower than its content by default: with a larger system font
-       (Firefox Android follows it), the inputs pushed it out of its card */
-    min-inline-size: 0;
-    padding: 1rem 0;
-    border: none;
-    border-top: 1px solid var(--color-border);
-
-    @media (max-width: 768px) {
-        grid-template-columns: minmax(0, 1fr);
+/* Wide card: two participants per row */
+#participants {
+    @container (min-width: 860px) {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap: 2rem;
     }
 }
 
-/* Located participant folded into one line */
-.participant-summary { display: none; }
-.participant--collapsed > :not(legend):not(.participant-summary) { display: none; }
-.participant--collapsed .participant-summary {
-    grid-column: 1 / -1;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    font-size: var(--text-lg);
+/* One participant: legend, address and remove button, then the modes; narrow card: the legend
+   and remove button on their own line */
+.participant {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+        "legend address remove"
+        ". modes modes";
+    align-items: start;
+    gap: 0.6rem 0.75rem;
+    /* A fieldset never gets narrower than its content by default: with a larger system font
+       (Firefox Android follows it), the inputs pushed it out of its card */
+    min-inline-size: 0;
+    padding: 0.75rem 0;
+    border: none;
+    border-top: 1px solid var(--color-border);
+
+    @container (max-width: 519px) {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "legend remove"
+            "address address"
+            "modes modes";
+    }
 }
-.participant-summary-text { min-width: 0; overflow-wrap: anywhere; color: var(--color-text-secondary); }
-.participant-summary-text strong { color: var(--color-text-primary); font-weight: 500; }
-.participant-summary-warning { color: var(--color-red-dark); }
+.participant > .participant-address { grid-area: address; }
+.participant > .participant-modes { grid-area: modes; }
+.participant > [data-action="remove"] { grid-area: remove; justify-self: end; align-self: center; }
 
 .participant-legend {
     float: left;
-    grid-column: 1 / -1;
+    grid-area: legend;
+    align-self: start;
+    /* Level with the address text (centered on the input's first line) */
+    line-height: 2.6rem;
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--color-accent);
 }
 
-/* Align with the inputs, below their labels */
-.participant > [data-action="locate"] {
-    margin-top: 1.4rem;
-
-    @media (max-width: 768px) {
-        margin-top: 0;
-        justify-self: start;
-    }
+.participant-address {
+    position: relative;
+    /* Scrolled to on touch screens: stop below the fixed navigation */
+    scroll-margin-top: calc(var(--nav-height) + 0.5rem);
 }
-
-.participant-address { position: relative; }
+.address-group {
+    position: relative;
+    display: flex;
+}
+.address-group input { border-start-end-radius: 0; border-end-end-radius: 0; }
+.address-group .location-button--icon {
+    height: auto;
+    border-left: none;
+    border-start-start-radius: 0;
+    border-end-start-radius: 0;
+    background: var(--color-bg);
+}
+.participant--located .address-group > * { border-color: var(--color-green); }
 
 /* Participant placed by the next click on the map: its color on the left; the negative margin
    keeps the card's content aligned with the rest of the form */
@@ -141,12 +226,16 @@
     background: color-mix(in srgb, var(--participant) 6%, transparent);
 }
 
-.participant-hint { font-size: var(--text-2xs); color: var(--color-text-muted); }
+.participant-hint {
+    font-size: var(--text-2xs);
+    color: var(--color-text-muted);
+
+    &:empty { display: none; }
+}
 .participant--located .participant-hint { color: var(--color-green); }
-.participant--located .participant-address input { border-color: var(--color-green); }
 
 .address-options {
-    top: calc(100% - 1.1rem);
+    top: calc(100% + 0.25rem);
     max-height: 16rem;
     font-size: var(--text-md);
 }
@@ -164,13 +253,6 @@
     color: var(--color-text-secondary);
 }
 
-.participant-modes {
-    grid-column: 1 / 3;
-
-    @media (max-width: 768px) {
-        grid-column: auto;
-    }
-}
 
 /* Toggle chips: a whole pill to click or tap; the checkbox stays in the page (keyboard,
    screen readers) but is visually hidden */
@@ -231,7 +313,7 @@
 /* Arrival slot: a button opening a list of about 10 ranges */
 .slot-field { position: relative; }
 .slot-button {
-    min-width: 11rem;
+    min-width: 9.5rem;
     padding: 0.5rem 2rem 0.5rem 0.65rem;
     font-family: var(--font-sans);
     font-size: var(--text-lg);
@@ -298,7 +380,18 @@
 .location-button:disabled { opacity: 0.5; cursor: default; }
 .chip:has(input:checked),
 .location-button--primary { color: var(--color-on-accent); background: var(--color-accent); border-color: var(--color-accent); }
-.location-button--primary:hover:not(:disabled) { background: var(--color-accent-light); }
+.location-button--primary:hover:not(:disabled):not([aria-disabled="true"]) { background: var(--color-accent-light); }
+/* Blocked: looks disabled but stays clickable, to say why */
+.location-button[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+/* Square button holding an icon, as tall as an input */
+.location-button--icon {
+    display: grid;
+    place-items: center;
+    width: 2.6rem;
+    height: 2.6rem;
+    padding: 0;
+}
+.participant-remove { padding: 0 0.5rem; font-size: var(--text-2xl); line-height: 1.6; }
 .location-button--ghost {
     border-color: transparent;
     color: var(--color-text-muted);
@@ -309,10 +402,20 @@
     }
 }
 
+/* Place and time: place types and arrival slot side by side (stacked when narrow), the button
+   below them across the card */
+.location-meeting-fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: start;
+    gap: 1rem 2rem;
+}
+.location-meeting .location-categories { padding: 0; }
+.location-submit { width: 100%; min-height: 2.75rem; margin-top: 1.25rem; }
+
 .location-categories {
     padding: 1rem 0;
     border: none;
-    border-top: 1px solid var(--color-border);
 }
 /* Floated so it sits inside the fieldset, not on its top border */
 .location-categories legend {
@@ -326,17 +429,28 @@
 /* Below the floated legend, full width (a flex box beside a float only gets what is left) */
 .location-categories .chips { clear: both; }
 
-.location-submit {
+.location-progress { margin-bottom: 1.5rem; }
+
+/* Settings: view and score side by side, stacked when narrow */
+.location-settings-row {
     display: flex;
     flex-wrap: wrap;
-    align-items: end;
-    justify-content: space-between;
-    gap: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--color-border);
+    gap: 0 2rem;
 }
+.location-settings-row > fieldset { flex: 1 1 18rem; }
+.location-settings-row .location-muted { margin-top: 0.4rem; }
 
-.location-progress { margin-bottom: 1.5rem; }
+/* Practical view: one progress bar; demonstrator view: the steps, the API calls and what the
+   map shows of the algorithm (barycenter, other candidates) */
+.progress-simple {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 1rem;
+}
+.progress-simple progress { flex: 1 1 12rem; height: 0.5rem; accent-color: var(--color-accent); }
+.location-layout:not(.location--demo) :is(.progress-steps, .location-calls-panel, .demo-only) { display: none; }
+.location--demo .progress-simple { display: none; }
 
 .location-calls-panel summary {
     cursor: pointer;
@@ -436,10 +550,84 @@
 .location-swatch--candidate   { background: #7A90AA; }
 .location-swatch--best        { background: #EA580C; }
 .location-swatch--center      { background: #0C1A2E; width: 6px; height: 6px; }
+/* Proposal number, as on the map */
+.location-swatch--rank,
+.rank-marker {
+    display: inline-grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--color-text-primary);
+    color: var(--color-on-accent);
+    font-family: var(--font-mono);
+    font-weight: 700;
+}
+.location-swatch--rank { width: 16px; height: 16px; margin-right: 0.15rem; font-size: 10px; vertical-align: middle; }
+.rank-marker {
+    border: 2px solid var(--color-bg);
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+    font-size: 13px;
+}
+.rank-marker--selected { background: #EA580C; color: #FFFFFF; }
 
 .location-best { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
 
 .location-place-select { min-width: min(100%, 22rem); }
+.location-ranking { margin: -0.5rem 0 0.75rem; }
+
+/* The best places: one button each, the chosen one highlighted */
+.proposals {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    list-style: none;
+}
+.proposal {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.15rem 0.6rem;
+    width: 100%;
+    height: 100%;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+.proposal:hover { border-color: var(--color-accent); background: var(--color-surface-hover); }
+.proposal:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.proposal[aria-pressed="true"] { border-color: #EA580C; box-shadow: inset 0 0 0 1px #EA580C; }
+.proposal-rank {
+    grid-row: span 2;
+    align-self: center;
+    display: grid;
+    place-items: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    background: var(--color-text-primary);
+    color: var(--color-on-accent);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 700;
+}
+.proposal[aria-pressed="true"] .proposal-rank { background: #EA580C; color: #FFFFFF; }
+.proposal-name { font-weight: 500; overflow-wrap: anywhere; }
+.proposal-times { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--color-text-secondary); }
+
+/* Links to the chosen place and the share button */
+.location-share {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+a.location-button { display: inline-flex; align-items: center; text-decoration: none; }
 
 .trip-cards {
     display: grid;
@@ -507,7 +695,6 @@
 @media (max-width: 768px) {
     .page-header--compact .page-header-title { font-size: 1.6rem; }
     #location-results { order: 1; margin-bottom: 1.5rem; }
-    .location-submit > .location-field,
-    .location-submit > .location-button,
+    .location-meeting-fields > .slot-field,
     .location-place-select { width: 100%; }
 }

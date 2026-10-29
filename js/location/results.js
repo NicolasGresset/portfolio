@@ -1,12 +1,16 @@
-// results.js - HTML of the results: the chosen place (best by default, or picked in the list or on
-// the map), the other places to pick from, and each participant's trip to it
+// results.js - HTML of the results: the best places (proposals), the chosen one (the best by
+// default, or picked among the proposals, on the map or, in the demonstrator view, in the list of
+// every candidate), links to it on OpenStreetMap and Google Maps, and each participant's trip to it
 
 import { escapeHtml } from '../format.js';
-import { MODE_LABELS, PARTICIPANT_COLORS, formatDuration } from './labels.js';
+import { MODE_LABELS, formatDuration } from './labels.js';
 
 const formatClock = iso => new Date(iso).toLocaleTimeString('fr-FR', {
     hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris',
 });
+
+export const PROPOSALS = 3; // best places offered: the group may prefer one it knows
+export const METRIC_LABELS = { total: 'temps total', fair: 'moyenne + écart' };
 
 export function choiceText(choice) {
     return choice ? `${formatDuration(choice.seconds)} (${MODE_LABELS[choice.mode]})` : 'injoignable';
@@ -55,14 +59,35 @@ function modeDetails(modeTimes, retained) {
         .join(' · ');
 }
 
+const placeAddress = place => [place.street, [place.postcode, place.city].filter(Boolean).join(' ')]
+    .filter(Boolean).join(', ');
+
+// The place on OpenStreetMap (its own page for an OSM feature, a marker for a Tisséo stop) and on
+// Google Maps (searched by name and address, which finds its page there; by position otherwise)
+export function placeLinks(place) {
+    const { lat, lon } = place;
+    const osm = /^(node|way|relation)\//.test(place.id)
+        ? `https://www.openstreetmap.org/${place.id}`
+        : `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=19/${lat}/${lon}`;
+    const address = placeAddress(place);
+    const query = osm.includes('?') || !address ? `${lat},${lon}` : `${place.name}, ${address}`;
+    return { osm, google: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}` };
+}
+
+// Text sent by the share button: the place, its address, the slot and its OpenStreetMap link
+export function shareText(place, slot) {
+    const address = placeAddress(place);
+    return `${place.name}${address ? `, ${address}` : ''} — arrivée ${slot.from.slice(11)} – ${slot.to.slice(11)}`;
+}
+
 function tripCard(p, i, place) {
     const choice = place.choices[i];
     const others = modeDetails(place.times[i], choice.mode);
     const trip = choice.mode === 'transit' ? place.times[i].transit.trip : null;
     return `
-        <article class="trip-card" style="--participant: ${PARTICIPANT_COLORS[i]}">
-            <h3 class="trip-card-title"><span class="location-swatch" style="background: ${PARTICIPANT_COLORS[i]}"></span>
-                ${escapeHtml(p.name)} <span class="trip-card-mode">${MODE_LABELS[choice.mode]} · ${formatDuration(choice.seconds)}</span></h3>
+        <article class="trip-card" style="--participant: ${p.color}">
+            <h3 class="trip-card-title"><span class="location-swatch" style="background: ${p.color}"></span>
+                ${escapeHtml(p.label)} <span class="trip-card-mode">${MODE_LABELS[choice.mode]} · ${formatDuration(choice.seconds)}</span></h3>
             ${trip ? transitSteps(trip, place.name)
                 : `<p class="trip-card-direct">Trajet direct${choice.mode === 'car' ? ', dont 5 min pour se garer' : ''}.</p>`}
             ${others ? `<p class="location-muted">Autres modes : ${others}</p>` : ''}
@@ -71,38 +96,62 @@ function tripCard(p, i, place) {
         </article>`;
 }
 
-// HTML of the results for the candidate `selected` of a result event
-export function resultsHtml(data, selected, categoryLabels) {
+function proposalButton(c, j, rank, selected) {
+    return `
+        <li><button type="button" class="proposal" data-place="${j}" aria-pressed="${j === selected}">
+            <span class="proposal-rank">${rank + 1}</span>
+            <span class="proposal-name">${escapeHtml(c.name)}</span>
+            <span class="proposal-times">total ${formatDuration(c.total)} · écart ${formatDuration(c.spread)}</span>
+        </button></li>`;
+}
+
+// HTML of the results for the candidate `selected` of a result event; demo: the list of every
+// candidate with its score, to pick any of them
+export function resultsHtml(data, selected, categoryLabels, { demo = false } = {}) {
     const place = selected != null ? data.candidates[selected] : null;
-    const best = data.best != null ? data.candidates[data.best] : null;
     const slotText = `${data.slot.from.slice(11)} – ${data.slot.to.slice(11)}`;
 
     if (!place) {
         return `
-            <div class="chart-header"><h2 class="chart-title">Lieu retenu</h2></div>
+            <div class="chart-header"><h2 class="chart-title">Propositions</h2></div>
             <p class="location-best">${data.candidates.length
                 ? 'Aucun candidat n\'est atteignable par tous les participants.'
                 : 'Aucun candidat trouvé à moins de 5 km du barycentre : essayez d\'autres types de lieux.'}</p>`;
     }
 
-    const ranked = data.candidates.map((c, j) => ({ c, j }))
-        .sort((a, b) => (a.c.score ?? Infinity) - (b.c.score ?? Infinity));
-    const options = ranked.map(({ c, j }) => `
+    const ranked = [...data.ranking, ...data.candidates.map((_, j) => j).filter(j => !data.ranking.includes(j))];
+    const options = ranked.map(j => {
+        const c = data.candidates[j];
+        return `
         <option value="${j}"${j === selected ? ' selected' : ''}${c.score == null ? ' disabled' : ''}>
-            ${escapeHtml(c.name)} (${categoryLabels[c.category]}) — ${c.score != null ? formatDuration(c.score) : 'injoignable'}${c.incomplete ? ' · incomplet' : ''}${j === data.best ? ' · retenu' : ''}
-        </option>`).join('');
+            ${escapeHtml(c.name)} (${categoryLabels[c.category]}) — ${c.score != null ? `score ${formatDuration(c.score)}` : 'injoignable'}${c.incomplete ? ' · incomplet' : ''}
+        </option>`;
+    }).join('');
+    const proposals = data.ranking.slice(0, PROPOSALS);
+    const links = placeLinks(place);
+    const external = 'target="_blank" rel="noopener noreferrer"';
 
     return `
         <div class="chart-header">
-            <h2 class="chart-title">${place === best ? 'Lieu retenu' : 'Lieu choisi'}</h2>
-            <label class="location-field location-place-select">
-                <span>Autres lieux</span>
+            <h2 class="chart-title">Propositions</h2>
+            ${demo ? `<label class="location-field location-place-select">
+                <span>Tous les candidats (score : ${METRIC_LABELS[data.metric]})</span>
                 <select id="place-select">${options}</select>
-            </label>
+            </label>` : ''}
         </div>
+        <p class="location-muted location-ranking">Classées par ${METRIC_LABELS[data.metric]} (réglages) :
+            ${data.metric === 'fair' ? 'trajet moyen plus écart entre le plus long et le plus court' : 'somme des trajets de tous'}.</p>
+        <ol class="proposals">${proposals.map((j, rank) => proposalButton(data.candidates[j], j, rank, selected)).join('')}</ol>
         <p class="location-best"><span class="location-swatch location-swatch--best"></span>
-            <strong>${escapeHtml(place.name)}</strong> (${categoryLabels[place.category]}) — arrivée ${slotText}</p>
+            <strong>${escapeHtml(place.name)}</strong>
+            <span>(${categoryLabels[place.category]})${placeAddress(place) ? ` · ${escapeHtml(placeAddress(place))}` : ''} — arrivée ${slotText}</span></p>
+        <p class="location-share">
+            <a class="location-button" href="${links.osm}" ${external}>OpenStreetMap ↗</a>
+            <a class="location-button" href="${links.google}" ${external}>Google Maps ↗</a>
+            <button type="button" class="location-button" id="place-share">Partager le lieu</button>
+            <span class="location-muted" id="place-share-status" role="status"></span>
+        </p>
         ${place.incomplete ? `<p class="location-warning">Calcul incomplet pour ce lieu : des trajets en transports
-            en commun ont échoué deux fois${place === best ? ', et aucun lieu au calcul complet n\'est atteignable par tous' : ''}.</p>` : ''}
+            en commun ont échoué deux fois${selected === data.best ? ', et aucun lieu au calcul complet n\'est atteignable par tous' : ''}.</p>` : ''}
         <div class="trip-cards">${data.participants.map((p, i) => tripCard(p, i, place)).join('')}</div>`;
 }

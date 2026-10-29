@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="css/rendez-vous.css">
 </head>
 
-<body>
+<body class="page-wide">
 
     <!-- ======= NAVIGATION ======= -->
     <nav class="nav" aria-label="Navigation principale"></nav>
@@ -26,7 +26,7 @@
             <p class="page-header-label">// prototype</p>
             <h1 class="page-header-title">Rendez-vous</h1>
             <p class="page-header-intro">
-                Le point de rendez-vous qui minimise le temps de trajet total du groupe &mdash;
+                Les lieux de rendez-vous les plus rapides à rejoindre pour tout le groupe &mdash;
                 agglomération toulousaine uniquement.
             </p>
         </div>
@@ -36,21 +36,40 @@
         <div class="container page-main location-layout">
             <p class="location-banner" id="location-banner" hidden></p>
 
-            <!-- ======= API KEYS (stored only in this browser) ======= -->
+            <!-- ======= SETTINGS: view, score, API keys and transit engine (stored only in this browser) ======= -->
             <details class="chart-card location-keys" id="keys-panel">
-                <summary class="chart-title">Clés API</summary>
+                <summary class="chart-title">Réglages <span class="location-keys-summary" id="keys-summary"></span></summary>
+                <div class="location-settings-row">
+                    <fieldset class="location-categories" id="view-mode">
+                        <legend>Affichage</legend>
+                        <div class="chips">
+                            <label class="chip"><input type="radio" name="view-mode" value="practical" checked><span>pratique</span></label>
+                            <label class="chip"><input type="radio" name="view-mode" value="demo"><span>démonstrateur</span></label>
+                        </div>
+                        <p class="location-muted">Démonstrateur : barycentre et candidats sur la carte, étapes du calcul, appels API, score de chaque candidat.</p>
+                    </fieldset>
+                    <fieldset class="location-categories" id="score-metric">
+                        <legend>Critère</legend>
+                        <div class="chips">
+                            <label class="chip"><input type="radio" name="score-metric" value="total" checked><span>temps total</span></label>
+                            <label class="chip"><input type="radio" name="score-metric" value="fair"><span>moyenne + écart</span></label>
+                        </div>
+                        <p class="location-muted">Temps total : la somme des trajets. Moyenne + écart : le trajet moyen plus l'écart
+                            entre le plus long et le plus court, pour que personne ne voyage beaucoup plus que les autres.</p>
+                    </fieldset>
+                </div>
                 <form class="location-keys-form" id="keys-form" autocomplete="off">
                     <p class="location-muted">
                         Les calculs se font dans votre navigateur, avec vos propres clés. Elles sont gardées
                         uniquement dans ce navigateur, et chacune n'est envoyée qu'à son service.
                     </p>
                     <label class="location-field">
-                        <span>openrouteservice (obligatoire) &mdash;
+                        <span>openrouteservice (marche, vélo, voiture) &mdash;
                             <a href="https://openrouteservice.org/dev/#/signup" target="_blank" rel="noopener noreferrer">obtenir une clé ↗</a></span>
                         <input type="password" id="ors-key" spellcheck="false">
                     </label>
                     <label class="location-field">
-                        <span>Tisséo (facultative : transports en commun calculés par l'API Tisséo) &mdash;
+                        <span>Tisséo (facultative : bus/métro calculés par l'API Tisséo) &mdash;
                             <a href="https://data.toulouse-metropole.fr/explore/dataset/api-temps-reel-tisseo/" target="_blank" rel="noopener noreferrer">obtenir une clé ↗</a></span>
                         <input type="password" id="tisseo-key" spellcheck="false">
                     </label>
@@ -60,53 +79,73 @@
                     </div>
                     <p class="location-muted" id="keys-status" role="status"></p>
                 </form>
-            </details>
-
-            <!-- ======= INPUTS ======= -->
-            <!-- autocomplete="off": Firefox would otherwise restore the previous checkbox states on reload -->
-            <form class="chart-card location-form" id="location-form" novalidate autocomplete="off">
-                <div class="chart-header">
-                    <h2 class="chart-title">Participants</h2>
-                    <button type="button" class="location-button" id="add-participant">+ ajouter</button>
-                </div>
-                <div id="participants"></div>
-
-                <fieldset class="location-categories" id="categories">
-                    <legend>Types de lieux</legend>
-                    <div class="chips">
-                        <label class="chip"><input type="checkbox" name="categories" value="station"><span>stations (métro, bus)</span></label>
-                        <label class="chip"><input type="checkbox" name="categories" value="bar" checked><span>bars</span></label>
-                        <label class="chip"><input type="checkbox" name="categories" value="restaurant"><span>restaurants</span></label>
-                    </div>
-                </fieldset>
-
                 <fieldset class="location-categories" id="transit-engine">
-                    <legend>Transports en commun calculés par</legend>
+                    <legend>Bus/métro calculés par</legend>
                     <div class="chips">
                         <label class="chip"><input type="radio" name="transit-engine" value="transitous" checked><span>Transitous</span></label>
                         <label class="chip"><input type="radio" name="transit-engine" value="tisseo" disabled><span>Tisséo</span></label>
                     </div>
                     <p class="location-muted" id="transit-engine-hint"></p>
                 </fieldset>
-
-                <div class="location-submit">
-                    <!-- Custom list: a native <select> cannot limit how many ranges it shows -->
-                    <div class="location-field slot-field">
-                        <span id="slot-label">Arrivée entre</span>
-                        <button type="button" class="slot-button" id="slot" aria-haspopup="listbox"
-                            aria-expanded="false" aria-controls="slot-options" aria-labelledby="slot-label slot"></button>
-                        <ul class="slot-options" id="slot-options" role="listbox" aria-labelledby="slot-label"
-                            tabindex="-1" hidden></ul>
-                    </div>
-                    <button type="submit" class="location-button location-button--primary">Trouver le lieu</button>
+                <div class="location-field location-candidates">
+                    <label for="candidate-count">Lieux candidats évalués</label>
+                    <select id="candidate-count">
+                        <option>1</option><option>2</option><option>3</option><option>4</option>
+                        <option>5</option><option>6</option><option>7</option><option selected>8</option>
+                    </select>
+                    <span class="location-muted">8 au plus : chaque lieu coûte un trajet bus/métro par participant.</span>
                 </div>
-                <p class="activities-status" id="location-status" role="status" hidden></p>
+            </details>
+
+            <!-- ======= INPUTS: one form over two cards (display: contents, see the CSS) ======= -->
+            <!-- autocomplete="off": Firefox would otherwise restore the previous checkbox states on reload -->
+            <form class="location-form" id="location-form" novalidate autocomplete="off">
+                <section class="chart-card location-card" aria-labelledby="participants-title">
+                    <div class="chart-header">
+                        <h2 class="chart-title" id="participants-title">Participants</h2>
+                        <button type="button" class="location-button" id="add-participant">+ ajouter</button>
+                    </div>
+                    <p class="location-muted location-card-hint">Choisissez une adresse dans la liste proposée, ou cliquez sur la carte.</p>
+                    <div id="participants"></div>
+                </section>
+
+                <section class="chart-card location-card location-meeting" aria-labelledby="meeting-title">
+                    <div class="chart-header">
+                        <h2 class="chart-title" id="meeting-title">Lieu et horaire</h2>
+                    </div>
+                    <div class="location-meeting-fields">
+                        <fieldset class="location-categories" id="categories">
+                            <legend>Types de lieux</legend>
+                            <div class="chips">
+                                <label class="chip"><input type="checkbox" name="categories" value="station"><span>stations</span></label>
+                                <label class="chip"><input type="checkbox" name="categories" value="bar" checked><span>bars</span></label>
+                                <label class="chip"><input type="checkbox" name="categories" value="restaurant"><span>restaurants</span></label>
+                            </div>
+                        </fieldset>
+                        <!-- Custom list: a native <select> cannot limit how many ranges it shows -->
+                        <div class="location-field slot-field">
+                            <span id="slot-label">Arrivée entre</span>
+                            <button type="button" class="slot-button" id="slot" aria-haspopup="listbox"
+                                aria-expanded="false" aria-controls="slot-options" aria-labelledby="slot-label slot"></button>
+                            <ul class="slot-options" id="slot-options" role="listbox" aria-labelledby="slot-label"
+                                tabindex="-1" hidden></ul>
+                        </div>
+                    </div>
+                    <button type="submit" class="location-button location-button--primary location-submit">Trouver le lieu</button>
+                    <p class="activities-status" id="location-status" role="status" hidden></p>
+                </section>
             </form>
 
             <!-- ======= PROGRESS & API CALLS ======= -->
-            <section class="chart-card location-progress" id="location-progress" aria-labelledby="location-progress-title">
+            <!-- Shown from the first computation on -->
+            <section class="chart-card location-progress" id="location-progress" aria-labelledby="location-progress-title" hidden>
                 <div class="chart-header">
                     <h2 class="chart-title" id="location-progress-title">Calcul</h2>
+                </div>
+                <!-- Practical view: one bar; demonstrator view: every step and the API calls -->
+                <div class="progress-simple">
+                    <progress id="progress-bar" max="1" value="0"></progress>
+                    <span class="location-muted" id="progress-text" aria-live="polite"></span>
                 </div>
                 <ol class="progress-steps" id="progress-steps" aria-live="polite" hidden></ol>
                 <details class="location-calls-panel">
@@ -121,9 +160,10 @@
                     <h2 class="chart-title" id="location-map-title">Carte</h2>
                     <ul class="chart-legend" aria-label="Légende">
                         <li><span class="location-swatch location-swatch--participant"></span>participant</li>
-                        <li><span class="location-swatch location-swatch--center"></span>barycentre</li>
-                        <li><span class="location-swatch location-swatch--candidate"></span>candidat</li>
-                        <li><span class="location-swatch location-swatch--best"></span>lieu retenu</li>
+                        <li><span class="location-swatch location-swatch--rank">1</span>proposition</li>
+                        <li><span class="location-swatch location-swatch--best"></span>lieu choisi</li>
+                        <li class="demo-only"><span class="location-swatch location-swatch--center"></span>barycentre</li>
+                        <li class="demo-only"><span class="location-swatch location-swatch--candidate"></span>autre candidat</li>
                     </ul>
                 </div>
                 <p class="location-map-hint location-muted" id="map-hint" aria-live="polite"></p>
@@ -140,7 +180,7 @@
                 Itinéraires : openrouteservice (marche, vélo, voiture), API Tisséo ou
                 <a href="https://transitous.org" target="_blank" rel="noopener noreferrer">Transitous</a>
                 (<a href="https://transitous.org/sources/" target="_blank" rel="noopener noreferrer">sources des données</a>)
-                (transports en commun).
+                (bus/métro).
                 Plus d'infos <a href="https://github.com/NicolasGresset/portfolio" target="_blank" rel="noopener noreferrer">sur GitHub</a>.
             </p>
         </div>

@@ -1,6 +1,6 @@
 // engine.js - Meeting point computation, in the browser: candidates around the participants'
 // barycenter, each participant's travel time per mode to arrive today within [slot, slot + 15 min],
-// and the candidate minimizing the sum of each participant's fastest time.
+// and the candidates ranked by a score of each participant's fastest time (see SCORES).
 //
 // Progress is reported through emit(event), with event.type:
 //   start -> candidates -> matrix (one per mode) -> transit (progress) -> result
@@ -26,17 +26,18 @@ const RADIUS_START_M = 1000;
 const RADIUS_STEP_M = 500;
 const RADIUS_MAX_M = 5000;
 const MIN_CANDIDATES = 3;
+const MAX_CANDIDATES = 8; // default and maximum: each candidate costs one transit journey per participant
 
 // Categories the user picks from, and the place categories of data/pois-toulouse.json they cover:
 // only these places can be candidates, the others are for the address search
 export const CATEGORIES = { station: ['metro', 'bus'], bar: ['amenity=bar'], restaurant: ['amenity=restaurant'] };
 const CANDIDATE_CATEGORIES = new Set(Object.values(CATEGORIES).flat());
-// Maximum candidates per category, by number of categories picked (fewer if fewer nearby)
-const QUOTAS = {
-    1: { station: 8, bar: 8, restaurant: 8 },
-    2: { station: 4, bar: 4, restaurant: 4 },
-    3: { station: 3, bar: 3, restaurant: 2 },
-};
+// Maximum candidates per category: the total split evenly in the order the categories come, the
+// first ones getting the rest (8 over stations, bars, restaurants: 3, 3, 2). Fewer if fewer nearby
+function quotasFor(categories, total) {
+    return Object.fromEntries(categories.map((category, i) =>
+        [category, Math.floor(total / categories.length) + (i < total % categories.length ? 1 : 0)]));
+}
 
 // Every place (OSM places, Tisséo GTFS stops) and the French label of each category, a static
 // file served with the site
@@ -70,7 +71,7 @@ function haversine(a, b) {
 }
 
 // Closest places of the picked categories within radius meters, within each category's quota
-function candidatesWithin(places, center, categories, radius) {
+function candidatesWithin(places, center, categories, total, radius) {
     const seen = new Set();
     const nearby = places
         .map(p => ({ ...p, distance: Math.round(haversine(center, p)) }))
@@ -78,7 +79,7 @@ function candidatesWithin(places, center, categories, radius) {
         .sort((a, b) => a.distance - b.distance)
         // A place mapped twice under the same name counts once
         .filter(c => !seen.has(`${c.category}:${c.name}`) && seen.add(`${c.category}:${c.name}`));
-    const quotas = QUOTAS[categories.length];
+    const quotas = quotasFor(categories, total);
     return categories.flatMap(category => {
         const pool = nearby.filter(p => CATEGORIES[category].includes(p.category));
         const quota = quotas[category];
@@ -92,13 +93,15 @@ function candidatesWithin(places, center, categories, radius) {
 
 // The search radius grows by RADIUS_STEP_M until MIN_CANDIDATES are found, up to
 // RADIUS_MAX_M (local data only: no API call, whatever the radius)
-function findCandidates(places, center, categories) {
+function findCandidates(places, center, categories, total) {
     const pool = places.filter(p => CANDIDATE_CATEGORIES.has(p.category));
+    // Fewer than MIN_CANDIDATES asked for: no need to widen the search to find more
+    const wanted = Math.min(MIN_CANDIDATES, total);
     let radius = RADIUS_START_M;
-    let candidates = candidatesWithin(pool, center, categories, radius);
-    while (candidates.length < MIN_CANDIDATES && radius < RADIUS_MAX_M) {
+    let candidates = candidatesWithin(pool, center, categories, total, radius);
+    while (candidates.length < wanted && radius < RADIUS_MAX_M) {
         radius += RADIUS_STEP_M;
-        candidates = candidatesWithin(pool, center, categories, radius);
+        candidates = candidatesWithin(pool, center, categories, total, radius);
     }
     return { candidates, radius };
 }
@@ -110,11 +113,37 @@ function fastest(modeTimes) {
         .reduce((best, [mode, t]) => (!best || t.seconds < best.seconds ? { mode, seconds: t.seconds } : best), null);
 }
 
-// participants: [{ name, lat, lon, modes }], slot: "HH:MM",
+// Scores of a candidate from each participant's fastest time in seconds (lower is better):
+// total: the sum, the group's whole travel time; fair: the mean plus the gap between the
+// longest and the shortest trip, so that nobody travels much longer than the others
+export const SCORES = {
+    total: seconds => seconds.reduce((s, x) => s + x, 0),
+    fair:  seconds => seconds.reduce((s, x) => s + x, 0) / seconds.length + Math.max(...seconds) - Math.min(...seconds),
+};
+
+// Sets each evaluated candidate's score for the metric (null when someone cannot reach it) and
+// returns the indices of the reachable ones, best first. A candidate is incomplete when a transit
+// journey to it failed: its score may be too high (transit unknown, not impossible), so it comes
+// after the complete ones, unless none is reachable. Equal scores: the lower total first.
+// Called again when the metric changes: the times are kept, no new call is made
+export function rankCandidates(candidates, metric) {
+    candidates.forEach(c => {
+        c.score = c.choices.every(Boolean) ? SCORES[metric](c.choices.map(x => x.seconds)) : null;
+    });
+    const feasible = candidates.map((c, j) => j).filter(j => candidates[j].score != null);
+    const complete = feasible.filter(j => !candidates[j].incomplete);
+    return (complete.length ? complete : feasible)
+        .sort((a, b) => candidates[a].score - candidates[b].score || candidates[a].total - candidates[b].total);
+}
+
+// participants: [{ lat, lon, modes }], slot: "HH:MM",
 // categories: keys of CATEGORIES (1 to 3), transitEngine: key of TRANSIT_ENGINES,
+// maxCandidates: places evaluated, at most MAX_CANDIDATES, metric: key of SCORES,
 // keys: { ors, tisseo }, data: from loadData(),
 // calls: external API call counters, updated as calls are made
-export async function evaluate({ participants, slot, categories, transitEngine = 'transitous' }, keys, data, calls, emit) {
+export async function evaluate({ participants, slot, categories, transitEngine = 'transitous', maxCandidates = MAX_CANDIDATES,
+    metric = 'total' },
+    keys, data, calls, emit) {
     const date = todayInToulouse();
     const arriveFrom = `${date} ${slot}`;
     const arriveTo = addMinutes(arriveFrom, SLOT_MIN);
@@ -122,10 +151,11 @@ export async function evaluate({ participants, slot, categories, transitEngine =
     const base = { date, slot: { from: arriveFrom, to: arriveTo }, center, participants };
     emit({ type: 'start', ...base });
 
-    const { candidates, radius } = findCandidates(data.places, center, categories);
+    const total = Math.max(1, Math.min(MAX_CANDIDATES, maxCandidates));
+    const { candidates, radius } = findCandidates(data.places, center, categories, total);
     emit({ type: 'candidates', candidates, radius, sources: data.sources });
     if (!candidates.length) {
-        emit({ type: 'result', ...base, candidates, best: null });
+        emit({ type: 'result', ...base, candidates, ranking: [], best: null, metric });
         return emit({ type: 'done' });
     }
 
@@ -199,22 +229,18 @@ export async function evaluate({ participants, slot, categories, transitEngine =
         progress();
     });
 
-    // Score = sum of each participant's fastest time; null when someone cannot reach the candidate.
-    // A candidate is incomplete when a transit journey to it failed: its score may be too high
-    // (transit unknown, not impossible), so it is chosen only if no complete candidate is reachable
+    // Each participant's fastest time; total and gap (longest - shortest) are shown whatever the metric
     const evaluated = candidates.map((c, j) => {
         const choices = participants.map((_, i) => fastest(times[i][j]));
-        const score = choices.every(Boolean) ? choices.reduce((s, x) => s + x.seconds, 0) : null;
+        const seconds = choices.every(Boolean) ? choices.map(x => x.seconds) : null;
         const incomplete = participants.some((_, i) => times[i][j].transit?.failed);
-        return { ...c, score, incomplete, choices, times: participants.map((_, i) => times[i][j]) };
+        return { ...c, incomplete, choices, times: participants.map((_, i) => times[i][j]),
+            total: seconds && SCORES.total(seconds), spread: seconds && Math.max(...seconds) - Math.min(...seconds) };
     });
-    const feasible = evaluated.filter(c => c.score != null);
-    const pool = feasible.some(c => !c.incomplete) ? feasible.filter(c => !c.incomplete) : feasible;
-    const best = pool.length
-        ? evaluated.indexOf(pool.reduce((a, b) => (b.score < a.score ? b : a)))
-        : null;
+    const ranking = rankCandidates(evaluated, metric);
+    const best = ranking.length ? ranking[0] : null;
 
-    emit({ type: 'result', ...base, candidates: evaluated, best });
+    emit({ type: 'result', ...base, candidates: evaluated, ranking, best, metric });
     if (best != null) await placeRoutes(participants, evaluated[best], keys, calls, emit);
     emit({ type: 'done' });
 }

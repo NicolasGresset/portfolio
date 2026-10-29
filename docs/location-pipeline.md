@@ -1,8 +1,17 @@
 # Location — processing pipeline
 
 How the meeting point finder (`rendez-vous.html`, page called "Rendez-vous"; code in `js/location/`) turns participants into a
-chosen place. Everything runs in the browser: Vercel only serves static files, and the
-keys (openrouteservice, required; Tisséo, optional) are the user's own, kept in `localStorage`.
+ranked list of places. Everything runs in the browser: Vercel only serves static files, and the
+keys (openrouteservice, needed only when a participant walks, cycles or drives; Tisséo, optional) are the user's own, kept in `localStorage`
+(key `location.apiKeys`), like the settings (`location.settings`: view, score, number of candidates, transit engine).
+
+Participants have no name field (removed 2026-10-29): they are "participant 1, 2…", with a color each.
+
+Two views, picked in "Réglages" (`location--demo` class on the layout, CSS only, no new computation):
+
+- **pratique** (default): one progress bar; the map shows the participants and the 3 proposals;
+- **démonstrateur**: the computation steps and the "Appels API" panel; the map also shows the
+  barycenter and every other candidate; the results add a list of every candidate with its score.
 
 The diagrams are [Mermaid](https://mermaid.js.org/) code: GitHub renders them, and any
 Mermaid editor (e.g. https://mermaid.live) can display or export them.
@@ -124,8 +133,8 @@ flowchart TB
         direction TB
         R0["Only the candidate categories:<br/>amenity=bar, amenity=restaurant, metro, bus"]:::algo
         R1["Haversine distance to the barycenter,<br/>dedupe same category + name"]:::algo
-        R2["Radius 1 km, + 500 m while fewer than 3 candidates,<br/>up to 5 km"]:::algo
-        R3["Quota per type (maximums):<br/>1 type: 8 · 2 types: 4 each ·<br/>3 types: 3 stations, 3 bars, 2 restaurants"]:::algo
+        R2["Radius 1 km, + 500 m while fewer than 3 candidates<br/>(or than the number set, if lower), up to 5 km"]:::algo
+        R3["Quota per type (maximums): the number of<br/>candidates set in the page (1 to 8, default 8)<br/>split evenly, first types first:<br/>8 over 3 types: 3 stations, 3 bars, 2 restaurants"]:::algo
         R4["Stations: half the quota (rounded up)<br/>to the metro first, closest stops fill the rest"]:::algo
         R0 --> R1 --> R2 --> R3 --> R4
     end
@@ -154,14 +163,14 @@ flowchart TB
     PARK --> SCORE
     WINDOW --> SCORE
 
-    SCORE["Each participant: fastest available mode<br/>Score = sum over participants<br/>(candidate unreachable by one participant: excluded)"]:::algo
-    SCORE --> BEST["Chosen place = lowest score among complete candidates<br/>(incomplete ones only if no complete one is reachable);<br/>failures shown in the progress, the list and the trip cards"]:::algo
+    SCORE["Each participant: fastest available mode<br/>Score (Réglages, rankCandidates):<br/>temps total = sum of the times, or<br/>moyenne + écart = mean + (longest - shortest)<br/>(candidate unreachable by one participant: excluded)"]:::algo
+    SCORE --> BEST["Ranking: lowest score first, equal scores by lower total;<br/>complete candidates only (incomplete ones only if no complete<br/>one is reachable); the first 3 are the proposals, the first one<br/>is shown; changing the score re-ranks without any call"]:::algo
 
     BEST --> ROUTES["Paths to the chosen place"]
     ROUTES --> DIRECTIONS[("openrouteservice directions<br/>1 call per walk / bike / car participant")]:::api
     ROUTES --> LEGS["Transit: legs of the journey already fetched<br/>(lines, direction; stops count with Transitous only)"]:::local
 
-    BEST -.->|"user picks another place<br/>(list or map)"| OTHER["Same details for that place:<br/>transit legs kept, ORS directions<br/>fetched once per place shown"]:::algo
+    BEST -.->|"user picks another proposal<br/>(button or map; demonstrator: any candidate)"| OTHER["Same details for that place:<br/>transit legs kept, ORS directions<br/>fetched once per place shown"]:::algo
 ```
 
 ## 4. API calls of one computation
@@ -190,8 +199,8 @@ sequenceDiagram
             TR-->>B: itineraries
         end
     end
-    Note over B: score = sum of each participant's fastest time<br/>chosen place = lowest score
-    B-->>U: chosen place + trip details
+    Note over B: score of each participant's fastest times (sum, or mean + gap)<br/>3 proposals = lowest scores
+    B-->>U: proposals + trip details of the first one
     loop each walk / bike / car participant
         B->>ORS: directions (path to the chosen place)
         ORS-->>B: path
@@ -211,6 +220,12 @@ sequenceDiagram
 | Géoplateforme completion | 1 per pause while typing (≥ 3 chars) | none stated |
 | Géoplateforme reverse | 1 per "ma position actuelle", map click or drag of a point | none stated |
 | Local data | 0 (one static file, loaded once) | — |
+
+Links of the chosen place (no call until followed): its OpenStreetMap page (`openstreetmap.org/node/…`
+for an OSM feature, a marker at its position for a Tisséo stop) and a Google Maps search (name and
+address, so that Google shows the place's own page; position for a stop). "Partager le lieu" sends
+name, address, slot and the OpenStreetMap link to the system share sheet (`navigator.share`), or
+copies them to the clipboard where there is none (most computers).
 
 Transitous answer size (measured 2026-10-28 on 12 trips, 18:00–18:15 slot): by default `/plan`
 returns up to ~14 journeys over 2 h with turn-by-turn walking steps, ~400 KB raw (~100 KB gzip) per

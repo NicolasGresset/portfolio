@@ -1,13 +1,14 @@
-// main.js - Meeting point prototype, entirely in the browser: the user's API keys, participants
-// form with address autocompletion, computation progress, API call counters and the glue between
-// the engine and the page's other modules (search, slots, map, results).
+// main.js - Meeting point prototype, entirely in the browser: the user's API keys and settings
+// (practical or demonstrator view, score), participants form with address autocompletion,
+// computation progress, API call counters and the glue between the engine and the page's other
+// modules (search, slots, map, results).
 
-import { loadData, evaluate, placeRoutes } from './engine.js';
-import { loadKeys, saveKeys, clearKeys } from './keys.js';
+import { loadData, evaluate, placeRoutes, rankCandidates } from './engine.js';
+import { loadKeys, saveKeys, clearKeys, loadSettings, saveSettings } from './keys.js';
 import { createPlaceSearch } from './search.js';
 import { slotPicker } from './slots.js';
 import { TOULOUSE, createMap, drawCenter, drawCandidates, drawRoute as drawPath } from './map.js';
-import { resultsHtml, choiceText } from './results.js';
+import { resultsHtml, choiceText, placeLinks, shareText, PROPOSALS, METRIC_LABELS } from './results.js';
 import { MODE_LABELS, PARTICIPANT_COLORS } from './labels.js';
 import { escapeHtml } from '../format.js';
 
@@ -20,7 +21,9 @@ import { escapeHtml } from '../format.js';
     const MIN_LOCAL_QUERY_LENGTH = 2; // local place suggestions
     const SUGGEST_DELAY_MS = 250;
     const ORS_MODES = ['walk', 'bike', 'car'];
-    const DEFAULT_MODES = ['walk', 'transit']; // checked for every new participant
+    // Modes checked for every new participant: without an openrouteservice key, only those it
+    // does not need, so that a first visit can run at once
+    const defaultModes = () => (keys.ors ? ['walk', 'transit'] : ['transit']);
     // Plurals of the candidate categories; every category's label comes with the data
     const CATEGORY_PLURALS = {
         'amenity=bar': 'bars', 'amenity=restaurant': 'restaurants', metro: 'stations de métro', bus: 'arrêts de bus',
@@ -43,6 +46,9 @@ import { escapeHtml } from '../format.js';
     const banner  = document.getElementById('location-banner');
     const steps   = document.getElementById('progress-steps');
     const callsEl = document.getElementById('location-calls');
+    const layout  = document.querySelector('.location-layout');
+    const progressBar  = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
 
     // Bring a section into view (below the fixed navigation, see scroll-margin-top in the CSS)
     function scrollToSection(el) {
@@ -61,26 +67,76 @@ import { escapeHtml } from '../format.js';
     const keysStatus = document.getElementById('keys-status');
     const orsInput   = document.getElementById('ors-key');
     const tisseoInput = document.getElementById('tisseo-key');
-    const tisseoEngine = form.querySelector('[name="transit-engine"][value="tisseo"]');
+    // The transit engine is picked in the settings panel, outside the participants form
+    const engineInput = value => document.querySelector(`[name="transit-engine"][value="${value}"]`);
+    const tisseoEngine = engineInput('tisseo');
     const engineHint = document.getElementById('transit-engine-hint');
+    const keysSummary = document.getElementById('keys-summary');
+    const candidateCount = document.getElementById('candidate-count');
     const ENGINE_NAMES = { transitous: 'Transitous', tisseo: 'Tisséo' };
     let keys = loadKeys();
 
     function showKeys(message) {
         orsInput.value = keys.ors || '';
         tisseoInput.value = keys.tisseo || '';
-        keysPanel.open = !keys.ors;
+        // Folded: no key is needed for a bus/metro computation (the banner says when one is)
         const saved = [keys.ors && 'openrouteservice', keys.tisseo && 'Tisséo'].filter(Boolean);
         keysStatus.textContent = message || (saved.length
             ? `Clé${saved.length > 1 ? 's' : ''} ${saved.join(' et ')} enregistrée${saved.length > 1 ? 's' : ''} (dans ce navigateur uniquement).`
             : 'Aucune clé enregistrée.');
         // Tisséo needs the visitor's own key; without it, back to Transitous
         tisseoEngine.disabled = !keys.tisseo;
-        if (!keys.tisseo && tisseoEngine.checked) form.querySelector('[name="transit-engine"][value="transitous"]').checked = true;
-        engineHint.textContent = keys.tisseo ? '' : 'Tisséo : saisissez votre clé dans « Clés API ».';
-        form.querySelector('[type="submit"]').disabled = !keys.ors;
-        banner.hidden = !!keys.ors;
-        banner.textContent = 'Saisissez votre clé openrouteservice dans « Clé API » pour utiliser le service.';
+        if (!keys.tisseo && tisseoEngine.checked) engineInput('transitous').checked = true;
+        engineHint.textContent = keys.tisseo ? '' : 'Tisséo : saisissez votre clé ci-dessus.';
+        showSettingsSummary();
+        updateSubmit();
+    }
+
+    // The folded settings line: each key's state and the transit engine
+    function showSettingsSummary() {
+        const engine = ENGINE_NAMES[checkedValue('transit-engine')];
+        keysSummary.textContent = `${isDemo() ? 'démonstrateur' : 'pratique'} · ${METRIC_LABELS[checkedValue('score-metric')]}`
+            + ` · openrouteservice ${keys.ors ? '✓' : 'à renseigner'} · Tisséo ${keys.tisseo ? '✓' : 'facultative'}`
+            + ` · bus/métro : ${engine} · ${candidateCount.value} lieux`;
+    }
+
+    // ---- Settings, kept in this browser: view, score, number of candidates, transit engine ----
+    const checkedValue = name => document.querySelector(`[name="${name}"]:checked`).value;
+    const isDemo = () => checkedValue('view-mode') === 'demo';
+    const SETTING_RADIOS = { view: 'view-mode', metric: 'score-metric', engine: 'transit-engine' };
+
+    function restoreSettings() {
+        const saved = loadSettings();
+        Object.entries(SETTING_RADIOS).forEach(([key, name]) => {
+            const input = saved[key] && document.querySelector(`[name="${name}"][value="${CSS.escape(saved[key])}"]`);
+            if (input) input.checked = true;
+        });
+        if ([...candidateCount.options].some(o => o.value === saved.candidates)) candidateCount.value = saved.candidates;
+    }
+
+    function storeSettings() {
+        saveSettings({ ...Object.fromEntries(Object.entries(SETTING_RADIOS).map(([key, name]) => [key, checkedValue(name)])),
+            candidates: candidateCount.value });
+    }
+
+    // openrouteservice computes walking, cycling and driving only: without its key, a computation
+    // with bus/metro participants only can still run. Returns why it cannot, or null
+    function submitBlocker() {
+        const needsOrs = [...list.querySelectorAll('[name="modes"]:checked')].some(c => ORS_MODES.includes(c.value));
+        return needsOrs && !keys.ors
+            ? 'La marche, le vélo et la voiture sont calculés par openrouteservice : saisissez votre clé dans les réglages, ou ne gardez que bus/métro.'
+            : null;
+    }
+
+    // A blocked button stays clickable (a disabled one gets no hover, and phones have none):
+    // its title and the banner say why, and a click opens the keys panel
+    function updateSubmit() {
+        const reason = submitBlocker();
+        const submit = form.querySelector('[type="submit"]');
+        submit.setAttribute('aria-disabled', reason ? 'true' : 'false');
+        submit.title = reason || '';
+        banner.hidden = !reason;
+        banner.textContent = reason || '';
     }
 
     keysForm.addEventListener('submit', e => {
@@ -139,8 +195,8 @@ import { escapeHtml } from '../format.js';
     // routes (place id -> participant index -> route event) }
     let current = null;
 
-    const participantName = row => row.querySelector('[name="name"]').value.trim()
-        || `Participant ${[...list.children].indexOf(row) + 1}`;
+    // Participants are told apart by their number and color (no name field)
+    const participantLabel = row => `participant ${[...list.children].indexOf(row) + 1}`;
 
     const colorOf = row => PARTICIPANT_COLORS[[...list.children].indexOf(row) % PARTICIPANT_COLORS.length];
 
@@ -167,7 +223,7 @@ import { escapeHtml } from '../format.js';
             participantMarkers.set(row, marker);
         }
         marker.setLatLng(latLng).setStyle({ color: colorOf(row) }).unbindPopup()
-            .bindTooltip(escapeHtml(participantName(row)), { permanent: true, direction: 'top', offset: [0, -8] });
+            .bindTooltip(participantLabel(row), { permanent: true, direction: 'top', offset: [0, -8] });
         updateMapHint();
     }
 
@@ -193,7 +249,7 @@ import { escapeHtml } from '../format.js';
             return;
         }
         const name = document.createElement('strong');
-        name.textContent = participantName(activeRow);
+        name.textContent = participantLabel(activeRow);
         name.style.color = colorOf(activeRow);
         mapHint.replaceChildren('Cliquez sur la carte pour placer ', name, `.${dragHint}`);
     }
@@ -217,7 +273,6 @@ import { escapeHtml } from '../format.js';
         const label = await reverseGeocode(lat, lon);
         if (row.dataset.lat !== String(lat) || row.dataset.lon !== String(lon)) return; // moved meanwhile
         row.querySelector('[name="address"]').value = label || fallbackLabel;
-        updateSummary(row);
     }
 
     // A double click (or double tap) only zooms: a single click waits to be sure it is one
@@ -353,12 +408,8 @@ import { escapeHtml } from '../format.js';
             delete row.dataset.lon;
         }
         row.classList.toggle('participant--located', !!place);
-        // A located participant folds into a one-line summary, unfolded again by "modifier"
-        row.classList.toggle('participant--collapsed', !!place);
-        row.querySelector('.participant-hint').textContent = place
-            ? '✓ position enregistrée'
-            : 'choisissez une proposition dans la liste ou cliquez sur la carte';
-        updateSummary(row);
+        // How to pick an address is said once, above the participants
+        row.querySelector('.participant-hint').textContent = place ? '✓ position enregistrée' : '';
         updateMarker(row);
         clearResults();
         if (place && fit) fitParticipants();
@@ -371,6 +422,13 @@ import { escapeHtml } from '../format.js';
         let active = -1;
         let timer = null;
         let requestId = 0;
+
+        // Touch screens: the keyboard covers the lower part of the screen, where the suggestions
+        // open; the field moves to the top of the screen, below the navigation, to leave them room
+        // (after the tap's own events: they would interrupt a smooth scroll started during them)
+        input.addEventListener('focus', () => {
+            if (!finePointer) setTimeout(() => scrollToSection(row.querySelector('.participant-address')), 50);
+        });
 
         const close = () => {
             box.hidden = true;
@@ -385,6 +443,9 @@ import { escapeHtml } from '../format.js';
         };
         const choose = index => {
             if (!options[index]) return;
+            // A Géoplateforme answer still to come must not open the list again
+            clearTimeout(timer);
+            requestId++;
             setPosition(row, options[index]);
             placed(row);
             close();
@@ -451,15 +512,15 @@ import { escapeHtml } from '../format.js';
     }
 
     // ---- Participants form ----
-    // Keyboard flow on computers: Tab goes from name to address to the next name; Enter in a
-    // name goes to its address; choosing an address goes to the next participant to fill,
-    // or to "Trouver le lieu". Not on touch screens, where focusing opens the keyboard.
+    // Keyboard flow on computers: Tab goes from address to address; choosing an address goes to
+    // the next participant to fill, or to "Trouver le lieu". Not on touch screens, where focusing
+    // opens the keyboard.
 
     function focusNextParticipant(row) {
         if (!finePointer) return;
         const rows = [...list.children];
-        const next = rows.slice(rows.indexOf(row) + 1).find(r => !r.classList.contains('participant--collapsed'));
-        (next ? next.querySelector('[name="name"]') : form.querySelector('[type="submit"]')).focus();
+        const next = rows.slice(rows.indexOf(row) + 1).find(r => !r.dataset.lat);
+        (next ? next.querySelector('[name="address"]') : form.querySelector('[type="submit"]')).focus();
     }
 
     let rowCounter = 0;
@@ -469,40 +530,35 @@ import { escapeHtml } from '../format.js';
         row.className = 'participant';
         row.innerHTML = `
             <legend class="participant-legend"></legend>
-            <div class="participant-summary">
-                <span class="participant-summary-text"></span>
-                <button type="button" class="location-button location-button--ghost" data-action="edit">modifier</button>
-            </div>
-            <label class="location-field">
-                <span>Nom</span>
-                <input type="text" name="name" maxlength="40" autocomplete="off">
-            </label>
             <div class="location-field participant-address">
-                <label for="address-${uid}">Adresse ou lieu</label>
-                <input type="text" id="address-${uid}" name="address" placeholder="ex. place du Capitole"
-                    autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false"
-                    aria-controls="address-options-${uid}">
-                <ul class="address-options" id="address-options-${uid}" role="listbox" hidden></ul>
-                <span class="participant-hint">choisissez une proposition dans la liste ou cliquez sur la carte</span>
+                <label class="visually-hidden" for="address-${uid}">Adresse ou lieu</label>
+                <!-- Address field and position button: one control for one thing, the place -->
+                <div class="address-group">
+                    <input type="text" id="address-${uid}" name="address" placeholder="Adresse ou lieu"
+                        autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false"
+                        aria-controls="address-options-${uid}">
+                    <!-- Own drawing (a target): no third-party icon -->
+                    <button type="button" class="location-button location-button--icon" data-action="locate" tabindex="-1"
+                    aria-label="Ma position actuelle" title="Ma position actuelle">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"
+                        fill="currentColor" stroke="none"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg>
+            </button>
+                    <ul class="address-options" id="address-options-${uid}" role="listbox" hidden></ul>
+                </div>
+                <span class="participant-hint"></span>
             </div>
-            <button type="button" class="location-button" data-action="locate" tabindex="-1">ma position actuelle</button>
             <div class="participant-modes chips" role="group" aria-label="Modes de transport">
                 ${Object.entries(MODE_LABELS).map(([mode, label]) => `
-                    <label class="chip"><input type="checkbox" name="modes" value="${mode}" tabindex="-1"${DEFAULT_MODES.includes(mode) ? ' checked' : ''}><span>${label}</span></label>
+                    <label class="chip"><input type="checkbox" name="modes" value="${mode}" tabindex="-1"${defaultModes().includes(mode) ? ' checked' : ''}><span>${label}</span></label>
                 `).join('')}
             </div>
-            <button type="button" class="location-button location-button--ghost" data-action="remove" tabindex="-1" aria-label="Retirer ce participant">retirer</button>`;
+            <button type="button" class="location-button location-button--ghost participant-remove" data-action="remove" tabindex="-1"
+                aria-label="Retirer ce participant" title="Retirer ce participant">×</button>`;
         list.appendChild(row);
         attachAutocomplete(row);
         refreshRows();
         return row;
-    }
-
-    function updateSummary(row) {
-        const modes = [...row.querySelectorAll('[name="modes"]:checked')].map(c => MODE_LABELS[c.value]);
-        row.querySelector('.participant-summary-text').innerHTML = `<strong>${escapeHtml(participantName(row))}</strong>
-            · ${escapeHtml(row.querySelector('[name="address"]').value)}
-            · <span class="${modes.length ? '' : 'participant-summary-warning'}">${escapeHtml(modes.join(', ') || 'aucun mode')}</span>`;
     }
 
     function refreshRows() {
@@ -511,12 +567,11 @@ import { escapeHtml } from '../format.js';
             legend.textContent = `participant ${i + 1}`;
             legend.style.color = PARTICIPANT_COLORS[i];
             row.style.setProperty('--participant', PARTICIPANT_COLORS[i]);
-            row.querySelector('[name="name"]').placeholder = `Participant ${i + 1}`;
             row.querySelector('[data-action="remove"]').hidden = list.children.length <= 1;
-            updateSummary(row);
             updateMarker(row);
         });
         addBtn.disabled = list.children.length >= MAX_PARTICIPANTS;
+        updateSubmit();
     }
 
     // The participant whose card is used is the one a click on the map places
@@ -527,21 +582,9 @@ import { escapeHtml } from '../format.js';
         if (row && row !== activeRow) setActive(row);
     });
 
-    list.addEventListener('keydown', e => {
-        if (e.key !== 'Enter' || e.target.name !== 'name') return;
-        e.preventDefault();
-        e.target.closest('.participant').querySelector('[name="address"]').focus();
-    });
-
-    list.addEventListener('input', e => {
-        if (e.target.name !== 'name') return;
-        const row = e.target.closest('.participant');
-        updateSummary(row);
-        updateMarker(row);
-    });
     list.addEventListener('change', e => {
         if (e.target.name !== 'modes') return;
-        updateSummary(e.target.closest('.participant'));
+        updateSubmit();
         clearResults();
     });
 
@@ -549,11 +592,6 @@ import { escapeHtml } from '../format.js';
         const button = e.target.closest('button[data-action]');
         if (!button) return;
         const row = button.closest('.participant');
-        if (button.dataset.action === 'edit') {
-            row.classList.remove('participant--collapsed');
-            row.querySelector('[name="address"]').focus();
-            return;
-        }
         if (button.dataset.action === 'remove') {
             participantMarkers.get(row)?.remove();
             participantMarkers.delete(row);
@@ -577,23 +615,29 @@ import { escapeHtml } from '../format.js';
     addBtn.addEventListener('click', () => {
         const row = addParticipant();
         setActive(row);
-        if (finePointer) row.querySelector('[name="name"]').focus();
+        if (finePointer) row.querySelector('[name="address"]').focus();
     });
     const firstRow = addParticipant();
     addParticipant();
+    addParticipant();
     setActive(firstRow);
-    if (finePointer) firstRow.querySelector('[name="name"]').focus();
+    if (finePointer) firstRow.querySelector('[name="address"]').focus();
 
+    // Participants left untouched (no address) are ignored: three are shown by default
     function readParticipants() {
-        return [...list.children].map(row => {
-            const name = participantName(row);
+        const untouched = row => !row.dataset.lat && !row.querySelector('[name="address"]').value.trim();
+        const rows = [...list.children].filter(row => !untouched(row));
+        if (!rows.length) throw new Error('Choisissez une adresse pour au moins un participant.');
+        return rows.map(row => {
+            const label = participantLabel(row);
             const modes = [...row.querySelectorAll('[name="modes"]:checked')].map(c => c.value);
             if (!row.dataset.lat) {
                 row.querySelector('[name="address"]').focus();
-                throw new Error(`Choisissez une adresse dans la liste, un point sur la carte ou « ma position actuelle » pour ${name}.`);
+                throw new Error(`Choisissez une adresse dans la liste, un point sur la carte ou « ma position actuelle » pour le ${label}.`);
             }
-            if (!modes.length) throw new Error(`Choisissez au moins un mode de transport pour ${name}.`);
-            return { name, modes, lat: Number(row.dataset.lat), lon: Number(row.dataset.lon), row };
+            if (!modes.length) throw new Error(`Choisissez au moins un mode de transport pour le ${label}.`);
+            // Label and color go with the participant: an ignored one before it must not shift the others'
+            return { label, modes, lat: Number(row.dataset.lat), lon: Number(row.dataset.lon), color: colorOf(row), row };
         });
     }
 
@@ -604,6 +648,14 @@ import { escapeHtml } from '../format.js';
                 <span class="progress-label">${s.label}</span>
                 <span class="progress-detail location-muted"></span></li>`).join('');
         steps.hidden = false;
+        setProgress(0, 'Recherche des lieux candidats…');
+        document.getElementById('location-progress').hidden = false;
+    }
+
+    // Practical view: one bar and one line; the transit journeys are most of the waiting
+    function setProgress(fraction, text) {
+        progressBar.value = fraction;
+        progressText.textContent = text;
     }
 
     function setStep(id, state, detail) {
@@ -615,6 +667,7 @@ import { escapeHtml } from '../format.js';
     function failRunningStep(message) {
         const running = steps.querySelector('[data-state="running"]') || steps.querySelector('[data-state="pending"]');
         if (running) setStep(running.dataset.step, 'error', message);
+        setProgress(progressBar.value, `Échec : ${message}`);
     }
 
     function describeCandidates(candidates) {
@@ -630,23 +683,28 @@ import { escapeHtml } from '../format.js';
     function drawRoute(i) {
         const place = current.data.candidates[current.selected];
         const route = current.routes.get(place.id)?.get(i);
-        drawPath(routeLayers[i], current.data.participants[i], place, route, PARTICIPANT_COLORS[i]);
+        const p = current.data.participants[i];
+        drawPath(routeLayers[i], p, place, route, p.color);
     }
 
+    // Practical view: the proposals only; demonstrator view: the barycenter and every candidate too
     function drawSelection(fit) {
         const { data, rows, selected } = current;
         const place = data.candidates[selected];
+        const demo = isDemo();
         resultLayer.clearLayers();
-        drawCenter(resultLayer, data.center);
-        drawCandidates(resultLayer, data.candidates, categoryLabels, selected, selectPlace);
+        if (demo) drawCenter(resultLayer, data.center);
+        drawCandidates(resultLayer, data.candidates, categoryLabels,
+            { selected, proposals: data.ranking.slice(0, PROPOSALS), all: demo, onSelect: selectPlace });
         routeLayers = data.participants.map((p, i) => {
             participantMarkers.get(rows[i])
-                ?.bindPopup(`<strong>${escapeHtml(p.name)}</strong><br>${choiceText(place?.choices[i])}`);
+                ?.bindPopup(`<strong>${escapeHtml(p.label)}</strong><br>${choiceText(place?.choices[i])}`);
             return place ? L.layerGroup().addTo(resultLayer) : null;
         });
         if (place) data.participants.forEach((_, i) => drawRoute(i));
         if (fit) {
-            const points = [...data.candidates.map(c => [c.lat, c.lon]), ...data.participants.map(p => [p.lat, p.lon])];
+            const shown = demo ? data.candidates : data.ranking.slice(0, PROPOSALS).map(j => data.candidates[j]);
+            const points = [...shown.map(c => [c.lat, c.lon]), ...data.participants.map(p => [p.lat, p.lon])];
             if (points.length) map.fitBounds(points, { padding: [30, 30], maxZoom: 16 });
         }
     }
@@ -679,9 +737,50 @@ import { escapeHtml } from '../format.js';
     }
 
     function renderResults() {
-        results.innerHTML = resultsHtml(current.data, current.selected, categoryLabels);
+        results.innerHTML = resultsHtml(current.data, current.selected, categoryLabels, { demo: isDemo() });
         results.querySelector('#place-select')?.addEventListener('change', e => selectPlace(Number(e.target.value)));
+        results.querySelectorAll('.proposal').forEach(button =>
+            button.addEventListener('click', () => selectPlace(Number(button.dataset.place))));
+        results.querySelector('#place-share')?.addEventListener('click', sharePlace);
         results.hidden = false;
+    }
+
+    // Phones: the system share sheet (messaging apps); otherwise the text and the OpenStreetMap
+    // link are copied, to paste in a message. Nothing goes through this site
+    async function sharePlace() {
+        const place = current.data.candidates[current.selected];
+        const text = shareText(place, current.data.slot);
+        const url = placeLinks(place).osm;
+        const shareStatus = results.querySelector('#place-share-status');
+        try {
+            if (navigator.share) return await navigator.share({ title: place.name, text, url });
+            await navigator.clipboard.writeText(`${text}\n${url}`);
+            shareStatus.textContent = 'Copié : à coller dans un message.';
+        } catch (err) {
+            if (err.name === 'AbortError') return; // share sheet closed
+            console.error(err);
+            shareStatus.textContent = 'Partage impossible : utilisez les liens ci-contre.';
+        }
+    }
+
+    // Another score ranks the places again from the times already known: no new call (except
+    // the openrouteservice paths of a new best place, if not fetched yet)
+    function rerank() {
+        if (!current) return;
+        const { data } = current;
+        data.metric = checkedValue('score-metric');
+        data.ranking = rankCandidates(data.candidates, data.metric);
+        data.best = data.ranking.length ? data.ranking[0] : null;
+        if (data.best != null && data.best !== current.selected) return selectPlace(data.best);
+        renderResults();
+        drawSelection(false);
+    }
+
+    function applyView() {
+        layout.classList.toggle('location--demo', isDemo());
+        if (!current) return;
+        renderResults();
+        drawSelection(false);
     }
 
     // ---- Run ----
@@ -702,7 +801,7 @@ import { escapeHtml } from '../format.js';
             setStep('center', 'done', `${event.center.lat.toFixed(4)}, ${event.center.lon.toFixed(4)}`);
             setStep('candidates', 'running', 'recherche autour du barycentre…');
             resultLayer.clearLayers();
-            drawCenter(resultLayer, event.center);
+            if (isDemo()) drawCenter(resultLayer, event.center);
             state.matrixModes = ORS_MODES.filter(m => participants.some(p => p.modes.includes(m)));
             state.matrixDone = [];
             break;
@@ -711,7 +810,8 @@ import { escapeHtml } from '../format.js';
             setStep('candidates', 'done', `${describeCandidates(event.candidates)} `
                 + `à moins de ${(event.radius / 1000).toLocaleString('fr-FR')} km `
                 + `(données OSM du ${event.sources.osm || '—'}, GTFS du ${event.sources.gtfs})`);
-            drawCandidates(resultLayer, event.candidates, categoryLabels);
+            if (isDemo()) drawCandidates(resultLayer, event.candidates, categoryLabels);
+            setProgress(0.05, `${describeCandidates(event.candidates)} : calcul des trajets…`);
             setStep('matrix', state.matrixModes.length ? 'running' : 'done',
                 state.matrixModes.length ? `0/${state.matrixModes.length} matrice(s)` : 'aucun participant concerné');
             break;
@@ -728,6 +828,7 @@ import { escapeHtml } from '../format.js';
                 const failed = event.errors ? `, ${event.errors} en erreur après 2 essais` : '';
                 setStep('transit', event.done === event.total ? 'done' : 'running',
                     `${event.done}/${event.total} trajets (${ENGINE_NAMES[event.engine]})${failed}`);
+                setProgress(0.05 + 0.85 * event.done / event.total, `Trajets en bus/métro : ${event.done}/${event.total}${failed}`);
             }
             if (event.done === event.total) setStep('result', 'running');
             break;
@@ -745,9 +846,12 @@ import { escapeHtml } from '../format.js';
             state.routesDone = 0;
             setStep('routes', state.routesTotal ? 'running' : 'done',
                 state.routesTotal ? `0/${state.routesTotal}` : 'aucun lieu retenu');
+            setProgress(0.95, event.best != null ? 'Tracé des itinéraires…' : 'Aucun lieu atteignable par tous.');
             current = { data: event, rows, selected: event.best, routes: new Map() };
             drawSelection(true);
             renderResults();
+            // Score changed during the computation
+            if (event.metric !== checkedValue('score-metric')) rerank();
             scrollToSection(results);
             break;
         }
@@ -757,19 +861,39 @@ import { escapeHtml } from '../format.js';
             break;
         case 'done':
             setStep('routes', 'done');
+            setProgress(1, `Terminé en ${Math.round((performance.now() - state.startedAt) / 1000)} s.`);
             break;
         default:
             break;
         }
     }
 
-    // Other place types or another transit engine make the displayed result stale
+    // Other place types, candidates or transit engine make the displayed result stale; another
+    // score or view only changes how it is ranked or shown
     document.getElementById('categories').addEventListener('change', clearResults);
-    document.getElementById('transit-engine').addEventListener('change', clearResults);
+    [candidateCount, document.getElementById('transit-engine')].forEach(input => input.addEventListener('change', () => {
+        storeSettings();
+        showSettingsSummary();
+        clearResults();
+    }));
+    document.getElementById('score-metric').addEventListener('change', () => {
+        storeSettings();
+        showSettingsSummary();
+        rerank();
+    });
+    document.getElementById('view-mode').addEventListener('change', () => {
+        storeSettings();
+        showSettingsSummary();
+        applyView();
+    });
 
     form.addEventListener('submit', async e => {
         e.preventDefault();
-        if (!keys.ors) return showKeys();
+        const reason = submitBlocker();
+        if (reason) {
+            keysPanel.open = true;
+            return setStatus(reason);
+        }
         const submit = form.querySelector('[type="submit"]');
         let participants;
         try {
@@ -790,11 +914,12 @@ import { escapeHtml } from '../format.js';
         running = true;
         renderCalls();
         const rows = participants.map(p => p.row);
-        const state = {};
+        const state = { startedAt: performance.now() };
         try {
             const data = await getData();
-            const transitEngine = form.querySelector('[name="transit-engine"]:checked').value;
-            const input = { slot: slotValue(), categories, transitEngine, participants: participants.map(({ row, ...p }) => p) };
+            const input = { slot: slotValue(), categories, transitEngine: checkedValue('transit-engine'),
+                maxCandidates: Number(candidateCount.value), metric: checkedValue('score-metric'),
+                participants: participants.map(({ row, ...p }) => p) };
             // lastRun is updated by the engine as calls are made
             await evaluate(input, keys, data, lastRun, event => {
                 handleEvent(event, participants, rows, state);
@@ -807,10 +932,12 @@ import { escapeHtml } from '../format.js';
         } finally {
             Object.keys(lastRun).forEach(k => { session[k] += lastRun[k]; });
             running = false;
-            submit.disabled = !keys.ors;
+            submit.disabled = false;
             renderCalls();
         }
     });
 
+    restoreSettings();
+    applyView();
     showKeys();
 })();

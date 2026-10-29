@@ -1,6 +1,6 @@
 // labels.js - French labels, colors and the duration format shared by the page's modules
 
-export const MODE_LABELS = { walk: 'marche', bike: 'vélo', car: 'voiture', transit: 'transports en commun' };
+export const MODE_LABELS = { walk: 'marche', bike: 'vélo', car: 'voiture', transit: 'bus/métro' };
 export const COLORS = { candidate: '#7A90AA', best: '#EA580C', center: '#0C1A2E' };
 // One color per participant (marker and path), none reused for candidates or the chosen place
 export const PARTICIPANT_COLORS = ['#2563EB', '#9333EA', '#0D9488', '#DB2777', '#65A30D'];

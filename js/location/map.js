@@ -21,17 +21,26 @@ export function drawCenter(layer, center) {
         .addTo(layer);
 }
 
-// Candidates in grey (clickable once evaluated), the selected one in orange; a click on them or
-// on the barycenter is not a click on the map (which places the active participant)
-export function drawCandidates(layer, candidates, categoryLabels, selected = null, onSelect = null) {
+// Candidates. proposals: indices of the best ones, numbered from 1; selected: the one shown, in
+// orange; the others are grey dots, drawn only when all is true (demonstrator view). A click on
+// a marker is not a click on the map (which places the active participant)
+export function drawCandidates(layer, candidates, categoryLabels, { selected = null, proposals = [], all = true, onSelect = null } = {}) {
     candidates.forEach((c, j) => {
         const isSelected = j === selected;
-        const marker = L.circleMarker([c.lat, c.lon], isSelected
-            ? { radius: 11, color: COLORS.best, fillOpacity: 0.9, weight: 3, bubblingMouseEvents: false }
-            : { radius: 6, color: COLORS.candidate, fillOpacity: 0.7, weight: 1, bubblingMouseEvents: false })
-            .bindTooltip(`${escapeHtml(c.name)} · ${categoryLabels[c.category]}`
-                + (c.score !== undefined ? ` · ${c.score != null ? `total ${formatDuration(c.score)}` : 'injoignable'}` : ''))
-            .addTo(layer);
+        const rank = proposals.indexOf(j);
+        if (rank < 0 && !isSelected && !all) return;
+        const tooltip = `${rank >= 0 ? `${rank + 1}. ` : ''}${escapeHtml(c.name)} · ${categoryLabels[c.category]}`
+            + (c.choices ? ` · ${c.score != null ? `total ${formatDuration(c.total)}, écart ${formatDuration(c.spread)}` : 'injoignable'}` : '');
+        const marker = rank >= 0
+            ? L.marker([c.lat, c.lon], {
+                icon: L.divIcon({ className: `rank-marker${isSelected ? ' rank-marker--selected' : ''}`,
+                    html: String(rank + 1), iconSize: [26, 26] }),
+                zIndexOffset: isSelected ? 1000 : 500, keyboard: !!onSelect, title: '',
+            })
+            : L.circleMarker([c.lat, c.lon], isSelected
+                ? { radius: 11, color: COLORS.best, fillOpacity: 0.9, weight: 3, bubblingMouseEvents: false }
+                : { radius: 6, color: COLORS.candidate, fillOpacity: 0.7, weight: 1, bubblingMouseEvents: false });
+        marker.bindTooltip(tooltip).addTo(layer);
         if (onSelect && c.score != null && !isSelected) marker.on('click', () => onSelect(j));
     });
 }
@@ -52,8 +61,8 @@ export function drawRoute(group, p, place, route, color) {
     route.legs.forEach(leg => {
         const walking = leg.kind === 'walk' && route.mode === 'transit';
         const label = leg.kind === 'line'
-            ? `${p.name} · ${leg.mode || 'ligne'} ${leg.line || ''}`
-            : `${p.name} · ${MODE_LABELS[walking ? 'walk' : route.mode]}`;
+            ? `${p.label} · ${leg.mode || 'ligne'} ${leg.line || ''}`
+            : `${p.label} · ${MODE_LABELS[walking ? 'walk' : route.mode]}`;
         if (!leg.path.length) return;
         L.polyline(leg.path, walking
             ? { color, weight: 3, dashArray: '2 6', opacity: 0.9 }
