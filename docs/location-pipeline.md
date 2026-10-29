@@ -100,9 +100,10 @@ whose card was focused or touched last; at load, the first one. Once it is place
 "ma position actuelle" or the map, the next participant without a position becomes active, none if
 all are placed, and none once the computation starts, so that a click on the result map moves
 nobody. A single click waits 300 ms: a double click (or double tap) only zooms. Clicks on the
-participants', candidates' and barycenter's points do not reach the map. On computers
-(`pointer: fine`), a participant's point can be dragged (by hand, Leaflet only drags image
-markers); not on touch screens, where it would fight with panning. The map does not recenter
+participants', candidates' and barycenter's points do not reach the map. A participant's point is
+a disc in their color with their number, as in their card (no permanent label). On computers
+(`pointer: fine`), it can be dragged (by hand, written when it was a circle marker, which Leaflet
+does not drag); not on touch screens, where it would fight with panning. The map does not recenter
 after a map placement.
 
 Score of a place (constants at the top of `search.js`, starting values to tune):

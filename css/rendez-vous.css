@@ -538,7 +538,18 @@
 }
 .location-map-hint { margin-bottom: 0.5rem; font-size: var(--text-sm); }
 .location-map--picking:not(.leaflet-dragging) { cursor: crosshair; }
-.participant-marker { cursor: grab; }
+.participant-marker {
+    display: grid;
+    place-items: center;
+    border: 2px solid #FFFFFF;
+    border-radius: 50%;
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+    color: #FFFFFF;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+}
+.participant-marker--draggable { cursor: grab; }
 .location-map--dragging,
 .location-map--dragging .leaflet-interactive { cursor: grabbing; }
 .location-map {
@@ -560,7 +571,19 @@
     height: 10px;
     border-radius: 50%;
 }
-.location-swatch--participant { background: #2563EB; }
+.location-swatch--participant {
+    display: inline-grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    margin-right: 0.15rem;
+    background: #2563EB;
+    color: #FFFFFF;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    vertical-align: middle;
+}
 .location-swatch--candidate   { background: #7A90AA; }
 .location-swatch--best        { background: #EA580C; }
 .location-swatch--center      { background: #0C1A2E; width: 6px; height: 6px; }

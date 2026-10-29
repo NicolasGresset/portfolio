@@ -214,16 +214,21 @@ import { escapeHtml } from '../format.js';
         }
         const latLng = [Number(row.dataset.lat), Number(row.dataset.lon)];
         if (!marker) {
-            // A click on a participant's point does not place the active participant there
-            marker = L.circleMarker(latLng, {
-                radius: 8, fillOpacity: 0.9, weight: 2, bubblingMouseEvents: false,
-                className: finePointer ? 'participant-marker' : '',
+            // A disc in the participant's color with their number, as in their card; a click on it
+            // does not place the active participant there (markers do not pass clicks to the map)
+            marker = L.marker(latLng, {
+                icon: L.divIcon({ className: `participant-marker${finePointer ? ' participant-marker--draggable' : ''}`,
+                    iconSize: [24, 24], popupAnchor: [0, -12] }),
+                keyboard: false, zIndexOffset: 1500,
             }).addTo(map);
             if (finePointer) makeDraggable(marker, row);
             participantMarkers.set(row, marker);
         }
-        marker.setLatLng(latLng).setStyle({ color: colorOf(row) }).unbindPopup()
-            .bindTooltip(participantLabel(row), { permanent: true, direction: 'top', offset: [0, -8] });
+        // Updated in place: a new icon would drop the drag listener on its element
+        const element = marker.setLatLng(latLng).unbindPopup().getElement();
+        element.textContent = [...list.children].indexOf(row) + 1;
+        element.style.background = colorOf(row);
+        element.title = participantLabel(row);
         updateMapHint();
     }
 
