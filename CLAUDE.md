@@ -29,9 +29,16 @@ This file is excluded from the deployment (`.vercelignore`) but versioned on Git
   third-party list of `legal.html` (English legal notice and privacy page) kept true.
 - Fonts (`assets/fonts`) and Leaflet (`assets/vendor/leaflet`) are served by the site: no
   third-party request on load besides what `legal.html` lists. The site sets no cookies.
-- Browser tests: Firefox is installed in WSL (`/snap/bin/firefox`) and can run headless against the
-  dev server; driving it through WebDriver BiDi (`--remote-debugging-port`, Node's WebSocket) gives
-  navigation, in-page scenarios, console errors and screenshots.
+- Browser tests: headless Firefox (`/snap/bin/firefox`) against the dev server, driven through
+  WebDriver BiDi by `scripts/firefox-bidi.js` (`withFirefox(async ({ send, context, evaluate,
+  screenshot, errors }) => …)`: navigation, in-page scenarios, console errors, screenshots under
+  `~/snap/firefox/common/shots`). Always go through it, never launch Firefox by hand: it picks a
+  free port (`--remote-debugging-port 0`), uses a fresh profile it deletes, and closes with
+  `browser.close`. Pitfalls it avoids (2026-10-29): the snap launcher hides Firefox's arguments, so
+  `pgrep -f <profile>` never finds it and a kill hits only its shell (Firefox survives, keeps its
+  port: "exit 69" on the next start, and recreates its profile after `rm`); a Bash background task
+  killed by hand reports "failed, exit 143/144", which is not a Firefox failure. Startup ~9 s.
+  The dev server's port 3000 is often already taken by the user's own server: reuse it.
 - `docs/`, `scripts/`, `data/README.md` (sources, ODbL licence of the places file) are not deployed.
 
 ## Rendez-vous tool (`rendez-vous.html`, `js/location/`)
