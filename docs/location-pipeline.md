@@ -11,15 +11,15 @@ proposals are numbered pins (map, legend, results), so that places and people do
 the chosen place is orange, and a pin without a number when it is not a proposal (picked in the
 demonstrator view's list); the other candidates (demonstrator view) are small grey pins.
 
-People per participant (2026-10-29): a stepper − [n] + after the modes (1 by default, no upper
+People per participant (2026-10-29): after the modes, a chip (a person icon and 1) opening a
+stepper − [n] +, folded again when the focus leaves it with one person (1 by default, no upper
 bound, anything typed reads as the nearest whole number from 1), for a team or a company leaving from
 one place with the same modes (people going another way: a second participant at the same place).
 Every person counts as one: the barycenter is weighted by the people, the total is the sum over
 every person (n x the participant's time) and the mean divides by the number of people; the gap
 (longest - shortest) does not change, since the people of one participant share its trip. No API call
 depends on it. Shown as ×n next to the participant's disc on the map and in their trip.
-At least 2 participants with a position are needed. Temporary, to compare in use: `?personnes=replie`
-folds the stepper into a "1 pers." chip while there is one person.
+At least 2 participants with a position are needed.
 
 Two views, picked in "Réglages" (`location--demo` class on the layout, CSS only, no new computation):
 

@@ -572,17 +572,19 @@ import { escapeHtml } from '../format.js';
                         <label class="chip"><input type="checkbox" name="modes" value="${mode}" tabindex="-1"${defaultModes().includes(mode) ? ' checked' : ''}><span>${label}</span></label>
                     `).join('')}
                 </div>
-                <!-- People leaving from this place (a team, a company): 1 by default, no upper bound -->
+                <!-- People leaving from this place (a team, a company): 1 by default, no upper bound;
+                     folded into a chip (a person and 1) until opened. Own drawing: no third-party icon -->
                 <div class="participant-people stepper" role="group" aria-label="Personnes au départ de ce lieu">
-                    <!-- Folded variant only (TEMPORARY, ?personnes=replie, to compare both in use) -->
-                    <button type="button" class="chip people-open" data-action="people-open" tabindex="-1">1 pers.</button>
+                    <button type="button" class="chip people-open" data-action="people-open" tabindex="-1"
+                        aria-label="1 personne, en ajouter" title="Plusieurs personnes partent de ce lieu ?">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <circle cx="12" cy="7" r="4"/><path d="M4 21a8 8 0 0 1 16 0z"/></svg>1</button>
                     <button type="button" class="stepper-button" data-action="people-less" tabindex="-1"
                         aria-label="Une personne de moins" title="Une personne de moins" disabled>−</button>
                     <input type="number" name="people" value="1" min="1" step="1" inputmode="numeric" tabindex="-1"
                         aria-label="Nombre de personnes">
                     <button type="button" class="stepper-button" data-action="people-more" tabindex="-1"
                         aria-label="Une personne de plus" title="Une personne de plus">+</button>
-                    <!-- Own drawing (a person): no third-party icon -->
                     <svg class="stepper-unit" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                         <circle cx="12" cy="7" r="4"/><path d="M4 21a8 8 0 0 1 16 0z"/></svg>
                 </div>
@@ -609,17 +611,13 @@ import { escapeHtml } from '../format.js';
         updateSubmit();
     }
 
-    // TEMPORARY, to compare in use: ?personnes=replie folds the people control into a "1 pers."
-    // chip while there is one person, opened by a click and folded again when the focus leaves it
-    if (new URLSearchParams(window.location.search).get('personnes') === 'replie') {
-        list.classList.add('participants--people-folded');
-        list.addEventListener('focusout', e => {
-            const group = e.target.closest('.participant-people');
-            if (group && !group.contains(e.relatedTarget) && peopleOf(group.closest('.participant')) === 1) {
-                group.classList.remove('participant-people--open');
-            }
-        });
-    }
+    // The people stepper, opened from its chip, folds again when the focus leaves it with one person
+    list.addEventListener('focusout', e => {
+        const group = e.target.closest('.participant-people');
+        if (group && !group.contains(e.relatedTarget) && peopleOf(group.closest('.participant')) === 1) {
+            group.classList.remove('participant-people--open');
+        }
+    });
 
     // The participant whose card is used is the one a click on the map places
     list.addEventListener('focusin', e => setActive(e.target.closest('.participant')));

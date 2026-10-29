@@ -158,8 +158,8 @@ Quotas: monitored per key, possibly paid beyond thresholds one day (doc § 2.3).
 - Next for the Rendez-vous tool (stated by the user 2026-10-29, for a new session):
   - **Diversity of the candidates** (high on the list): the 8 candidates must be spread out (two
     bars 50 m apart were proposed); choose the method with the user first.
-  - People per participant: done 2026-10-29 (doc § 1): stepper − [n] + after the modes, no upper
-    bound, every person counts (weighted barycenter, total and mean over people, gap unchanged), at
-    least 2 participants placed. Two variants to compare in use on the user's phone: always visible
-    (default) or folded into a "1 pers." chip (`?personnes=replie`, TEMPORARY: remove the losing one,
-    marked TEMPORARY in `main.js` and `rendez-vous.css`).
+  - People per participant: done 2026-10-29 (doc § 1): a chip (person icon, 1) after the modes opens
+    a stepper − [n] + (the user preferred it folded to always visible), no upper bound, every person
+    counts (weighted barycenter, total and mean over people, gap unchanged), at least 2 participants
+    placed. Open: the user once saw + step 1, 2, 4, 6 (not reproduced with real mouse and touch
+    clicks, one click event each; device and browser unknown).

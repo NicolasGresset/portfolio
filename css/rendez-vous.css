@@ -283,24 +283,23 @@
     padding: 0.4rem 0.25rem;
     font: inherit;
     font-size: var(--text-md);
+    font-variant-numeric: tabular-nums;
     text-align: center;
+    /* No spin buttons: the − and + buttons are bigger targets */
+    appearance: textfield;
 
     /* 16 px at least, or mobile browsers zoom in on focus */
     @media (max-width: 768px) { font-size: var(--text-2xl); }
     &:focus { outline: 2px solid var(--color-accent); outline-offset: -1px; }
-    font-variant-numeric: tabular-nums;
-    /* No spin buttons: the − and + buttons are bigger targets */
-    appearance: textfield;
-
     &::-webkit-inner-spin-button, &::-webkit-outer-spin-button { appearance: none; margin: 0; }
 }
 .stepper-unit { order: -1; color: var(--color-text-muted); }
 
-/* TEMPORARY folded variant (?personnes=replie): a "1 pers." chip until opened */
+/* Folded while there is one person and it was not opened: the chip only */
 .stepper > .people-open { display: none; }
-.participants--people-folded .participant-people:not(.participant-people--open) {
+.participant-people:not(.participant-people--open) {
     & > * { display: none; }
-    & > .people-open { display: inline-flex; }
+    & > .people-open { display: inline-flex; padding-inline: 0.75rem; font-variant-numeric: tabular-nums; }
 }
 
 /* Under the last participant, on its own line, after the same separator as between participants */
