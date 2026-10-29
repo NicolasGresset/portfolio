@@ -33,8 +33,10 @@ export function drawCandidates(layer, candidates, categoryLabels, { selected = n
             + (c.choices ? ` · ${c.score != null ? `total ${formatDuration(c.total)}, écart ${formatDuration(c.spread)}` : 'injoignable'}` : '');
         const marker = rank >= 0
             ? L.marker([c.lat, c.lon], {
+                // Pin 26 px wide: its tip, 26 / √2 below its center, on the place
                 icon: L.divIcon({ className: `rank-marker${isSelected ? ' rank-marker--selected' : ''}`,
-                    html: String(rank + 1), iconSize: [26, 26] }),
+                    html: `<span class="rank-pin"><span>${rank + 1}</span></span>`,
+                    iconSize: [26, 26], iconAnchor: [13, 31], tooltipAnchor: [0, -13] }),
                 zIndexOffset: isSelected ? 1000 : 500, keyboard: !!onSelect, title: '',
             })
             : L.circleMarker([c.lat, c.lon], isSelected

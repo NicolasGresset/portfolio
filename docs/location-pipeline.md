@@ -6,7 +6,8 @@ keys (openrouteservice, needed only when a participant walks, cycles or drives; 
 (key `location.apiKeys`), like the settings (`location.settings`: view, score, number of candidates, transit engine).
 
 Participants have no name field (removed 2026-10-29): they are "participant 1, 2…", with a color each,
-shown as a disc in their color with their number (the label is kept for screen readers).
+shown as a disc in their color with their number (the label is kept for screen readers). The
+proposals are numbered pins (map, legend, results), so that places and people do not look alike.
 
 Two views, picked in "Réglages" (`location--demo` class on the layout, CSS only, no new computation):
 

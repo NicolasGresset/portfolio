@@ -111,7 +111,7 @@ function tripCard(p, i, place, demo) {
 function proposalButton(c, j, rank, selected) {
     return `
         <li><button type="button" class="proposal" data-place="${j}" aria-pressed="${j === selected}">
-            <span class="proposal-rank">${rank + 1}</span>
+            <span class="rank-pin proposal-rank"><span>${rank + 1}</span></span>
             <span class="proposal-name">${escapeHtml(c.name)}</span>
             <span class="proposal-times">total ${formatDuration(c.total)} · écart ${formatDuration(c.spread)}</span>
         </button></li>`;
