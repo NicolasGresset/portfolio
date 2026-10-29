@@ -161,5 +161,5 @@ Quotas: monitored per key, possibly paid beyond thresholds one day (doc § 2.3).
   - People per participant: done 2026-10-29 (doc § 1): a chip (person icon, 1) after the modes opens
     a stepper − [n] + (the user preferred it folded to always visible), no upper bound, every person
     counts (weighted barycenter, total and mean over people, gap unchanged), at least 2 participants
-    placed. Open: the user once saw + step 1, 2, 4, 6 (not reproduced with real mouse and touch
-    clicks, one click event each; device and browser unknown).
+    placed. On hold: the user once saw + step 1, 2, 4, 6, most likely their mouse double-clicking
+    (not reproduced with real mouse and touch clicks in Firefox, one click event each).
