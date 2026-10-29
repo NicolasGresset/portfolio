@@ -391,7 +391,14 @@
         order: 2;
     }
 }
-.location-sources { margin-top: 0.5rem; }
+/* Data and routing credits: at the bottom of the page, after the results on phones too */
+.location-sources {
+    margin-top: 1rem;
+
+    @media (max-width: 768px) {
+        order: 3;
+    }
+}
 .location-map {
     height: 440px;
     border-radius: var(--radius-md);
