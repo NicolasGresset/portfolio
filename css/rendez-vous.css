@@ -85,12 +85,15 @@
     grid-template-columns: minmax(8rem, 1fr) minmax(12rem, 2.5fr) auto;
     align-items: start;
     gap: 0.75rem 1rem;
+    /* A fieldset never gets narrower than its content by default: with a larger system font
+       (Firefox Android follows it), the inputs pushed it out of its card */
+    min-inline-size: 0;
     padding: 1rem 0;
     border: none;
     border-top: 1px solid var(--color-border);
 
     @media (max-width: 768px) {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 
@@ -200,6 +203,9 @@
 }
 .location-field input,
 .location-field select {
+    /* Fill the field and let it shrink: an input's natural width is 20 characters */
+    width: 100%;
+    min-width: 0;
     font: inherit;
     font-family: var(--font-sans);
     font-size: var(--text-lg);
