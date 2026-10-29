@@ -99,8 +99,9 @@ Quotas: monitored per key, possibly paid beyond thresholds one day (doc § 2.3).
 
 - Local search: scoring implemented 2026-10-28 with starting weights; the user tunes them after testing.
   Sorted index: built in the browser on purpose (shipping it: +103 KB brotli, slower below ~16 Mbit/s).
-  Not yet measured on the user's phone (Galaxy A33). At equal rounded score, distance wins over
-  category ("jean jau" shows a hairdresser before the metro station).
+  Not yet measured on the user's phone (Galaxy A33). Since 2026-10-29, at equal rounded score the
+  category (metro > others > bus) wins over distance ("jean jau": the metro station before a nearer
+  hairdresser). Reference queries to compare rankings: `node scripts/search-queries.js [query…]`.
 - Later, once the page's purpose is settled (personal service, demonstrator…): cache of
   openrouteservice times and paths (they do not depend on the time of day; changing the slot
   re-calls the matrix today), favourite addresses with custom names in the autocompletion.

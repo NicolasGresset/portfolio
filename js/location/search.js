@@ -24,7 +24,8 @@ const CATEGORY_SYNONYMS = {
     'amenity=hospital': 'chu', 'amenity=doctors': 'docteur cabinet medical', 'amenity=cinema': 'cine',
     'office=company': 'societe', 'shop=hairdresser': 'coiffure',
 };
-// At equal score and distance: metro stations, then every other place, then the numerous bus stops
+// At equal score: metro stations, then every other place, then the numerous bus stops (before the
+// distance, so that "jean jau" gives the metro station before a nearer hairdresser of the same name)
 const categoryRank = category => (category === 'metro' ? 0 : category === 'bus' ? 2 : 1);
 const placeAddress = p => [p.street, [p.postcode, p.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
 
@@ -162,8 +163,8 @@ export function createPlaceSearch(data) {
         }
         return found
             .sort((a, b) => b.score - a.score
-                || a.distance - b.distance
                 || a.entry.rank - b.entry.rank
+                || a.distance - b.distance
                 || a.entry.nameLength - b.entry.nameLength)
             .slice(0, MAX_SUGGESTIONS)
             .map(({ entry: { place: p } }) => {
