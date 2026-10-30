@@ -152,6 +152,17 @@ Quotas: monitored per key, possibly paid beyond thresholds one day (doc § 2.3).
   (inferred from mode names, fields and error messages; the backend is not visible). Score: average
   time + gap longest-shortest, weighted equally (their page). No arrival time, share link where
   others add their start, GA4 + PostHog analytics.
+- Size of the API answers (measured 2026-10-30, Capitole -> avenue de l'URSS; no change decided):
+  Transitous `/plan` ~210 KB raw, ~31 KB gzip (a computation, 3 participants x 8 places: ~750 KB
+  downloaded, ~5 MB of JSON parsed); 45 % alerts (no parameter to drop them in the MOTIS spec), 24 %
+  walking `steps`; `detailedLegs=false` gives 130 KB raw / 14 KB gzip (scores intact, coarse paths).
+  Tisséo `journeys.xml` 89 KB, not compressed (a computation: ~4.3 MB); mostly walking streets and
+  WKT; no slimming parameter known (their developer documentation not checked). openrouteservice not
+  measured (no key here); `instructions: false` would drop the unused turn-by-turn steps. Possible
+  work: `detailedLegs=false` for the scoring calls, then a detailed call per participant for the shown
+  place only (+P calls on the shared Transitous quota); ORS `instructions: false`. The user's view:
+  little to gain in practice; the real limit is that Transitous and Tisséo seem not to offer selecting
+  the fields needed (not checked in detail). The home server would return only those, compressed.
 - Transitous `/api/experimental/one-to-many-intermodal` (MOTIS) works: `arriveBy=true` gives many ->
   one transit durations (and transfers) for an arrival time, so one call per candidate for all
   participants (C calls instead of P x C); 4.6 s per call (2 calls measured), durations only (no legs:
