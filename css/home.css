@@ -24,11 +24,6 @@
 }
 
 /* Home page: the hero fills the viewport left by the footer */
-.page-home {
-    display: flex;
-    flex-direction: column;
-    min-height: 100svh;
-}
 .page-home .hero { flex: 1; min-height: 0; }
 
 /* Vertical only, so .container keeps its side padding */
