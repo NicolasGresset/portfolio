@@ -796,6 +796,15 @@ import { escapeHtml } from '../format.js';
         results.querySelectorAll('.proposal').forEach(button =>
             button.addEventListener('click', () => selectPlace(Number(button.dataset.place))));
         results.querySelector('#place-share')?.addEventListener('click', sharePlace);
+        // Practical view: a click anywhere on a trip card folds or unfolds its steps; the summary
+        // toggles natively, the unfolded steps and a text selection are left alone
+        results.querySelectorAll('.trip-card').forEach(card => card.addEventListener('click', e => {
+            const details = card.querySelector('.trip-details');
+            if (!details || e.target.closest('summary, a, button')) return;
+            if (details.open && details.contains(e.target)) return;
+            if (String(window.getSelection())) return;
+            details.open = !details.open;
+        }));
         results.hidden = false;
     }
 

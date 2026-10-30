@@ -776,6 +776,8 @@ a.location-button { display: inline-flex; align-items: center; text-decoration: 
 .trip-card-lines { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; font-size: var(--text-xs); color: var(--color-text-muted); }
 
 /* Practical view: the steps folded under the title */
+.trip-card:has(.trip-details) { cursor: pointer; }
+.trip-details[open] > :not(summary) { cursor: auto; }
 .trip-details summary {
     cursor: pointer;
     font-family: var(--font-mono);

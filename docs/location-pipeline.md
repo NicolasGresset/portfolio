@@ -26,6 +26,8 @@ Two views, picked in "Réglages" (`location--demo` class on the layout, CSS only
 - **pratique** (default): one progress bar; the map shows the participants and the 3 proposals;
   each participant's trip is one line (mode, time, lines taken), the steps folded under
   "Voir l'itinéraire" (each person usually follows their own navigation app to the shared address);
+  a click anywhere on the trip card also folds or unfolds them (except on the unfolded steps
+  themselves, or when text is selected);
 - **démonstrateur**: the computation steps and the "Appels API" panel; the map also shows the
   barycenter and every other candidate; the results add a list of every candidate with its score,
   and the trips' steps are shown unfolded.
