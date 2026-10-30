@@ -752,6 +752,7 @@ a.location-button { display: inline-flex; align-items: center; text-decoration: 
 .trip-cards {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+    align-items: start;
     gap: 1rem;
 }
 .trip-card {

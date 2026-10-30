@@ -39,6 +39,12 @@ This file is excluded from the deployment (`.vercelignore`) but versioned on Git
   port: "exit 69" on the next start, and recreates its profile after `rm`); a Bash background task
   killed by hand reports "failed, exit 143/144", which is not a Firefox failure. Startup ~9 s.
   The dev server's port 3000 is often already taken by the user's own server: reuse it.
+- Rendez-vous UI tests without API calls: `scripts/location-fixture.js` replays a stored computation
+  (`scripts/fixtures/rendez-vous.json`: 3 participants, Transitous answers recorded 2026-10-30, slimmed;
+  page clock set back to the recording, openrouteservice made up in the page). `openWithFixture(page)`
+  then `runComputation(page, scenario)` inside `withFirefox`; `node scripts/location-fixture.js shot`
+  screenshots the results, `record` re-records (~24 Transitous calls, only when the format changes).
+  Use it for every graphical / UX change of the results.
 - `docs/`, `scripts/`, `data/README.md` (sources, ODbL licence of the places file) are not deployed.
 
 ## Rendez-vous tool (`rendez-vous.html`, `js/location/`)
