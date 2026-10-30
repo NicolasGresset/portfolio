@@ -6,12 +6,12 @@
 (function () {
     const LINKS = [
         // Hidden for now
-        // { href: 'projects.html',     label: 'projets' },
-        // { href: 'blog.html',         label: 'blog' },
-        { href: 'cinema.html',       label: 'cinéma' },
-        { href: 'sport.html',        label: 'sport' },
-        { href: 'publications.html', label: 'publications' },
-        { href: 'rendez-vous.html',  label: 'rendez-vous' },
+        // { href: 'projects',          label: 'projets' },
+        // { href: 'blog',              label: 'blog' },
+        { href: 'cinema',            label: 'cinéma' },
+        { href: 'sport',             label: 'sport' },
+        { href: 'publications',      label: 'publications' },
+        { href: 'rendez-vous',       label: 'rendez-vous' },
     ];
 
     // Site root, resolved from this script's URL so pages in subfolders (blog/) work too
@@ -23,7 +23,7 @@
             <div class="footer-inner">
                 <span class="footer-text">© ${new Date().getFullYear()} Nicolas Gresset-Bourgeois</span>
                 <span class="footer-text">Toulouse, France
-                    &middot; <a href="${new URL('legal.html', root)}">mentions légales et confidentialité</a></span>
+                    &middot; <a href="${new URL('legal', root)}">mentions légales et confidentialité</a></span>
             </div>`;
     }
 
@@ -32,7 +32,7 @@
 
     nav.innerHTML = `
         <div class="nav-inner">
-            <a href="${new URL('index.html', root)}" class="nav-logo">ngb.</a>
+            <a href="${root}" class="nav-logo">ngb.</a>
             <button class="nav-toggle" aria-label="Ouvrir le menu de navigation" aria-expanded="false">
                 <span></span><span></span><span></span>
             </button>
@@ -57,9 +57,9 @@
         });
     });
 
-    // Mark the current page link as active
-    const path = window.location.pathname.split('/').pop() || 'index.html';
+    // Mark the current page link as active (clean URLs: /sport, with /sport.html accepted too)
+    const page = url => url.pathname.split('/').pop().replace(/\.html$/, '');
     links.querySelectorAll('a').forEach(a => {
-        if (new URL(a.href).pathname.split('/').pop() === path) a.classList.add('active');
+        if (page(new URL(a.href)) === page(window.location)) a.classList.add('active');
     });
 })();

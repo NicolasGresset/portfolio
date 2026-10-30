@@ -34,7 +34,7 @@ export const sportData = fetch('/api/sport')
             // Only runs have a detail page
             grid.innerHTML = activities.map(a => {
                 const open = a.kind === 'run'
-                    ? `<a href="activite.html?id=${encodeURIComponent(a.id)}" class="activity-card" data-kind="run">`
+                    ? `<a href="activite?id=${encodeURIComponent(a.id)}" class="activity-card" data-kind="run">`
                     : `<article class="activity-card" data-kind="${a.kind}">`;
                 return `
                 ${open}

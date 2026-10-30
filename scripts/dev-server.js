@@ -2,7 +2,7 @@
 //
 // Usage: node --env-file=.env scripts/dev-server.js   ->  http://localhost:3000
 //
-// The headers of vercel.json are sent as on Vercel. To check a Content-Security-Policy change, set
+// The headers and cleanUrls of vercel.json are applied as on Vercel. To check a Content-Security-Policy change, set
 // CSP_REPORT=1 (violations logged here, policy enforced) or CSP_REPORT=only (logged, not enforced).
 
 const http = require('http');
@@ -13,8 +13,10 @@ const ROOT = path.join(__dirname, '..');
 const PORT = process.env.PORT || 3000;
 const CSP_REPORT_PATH = '/__csp-report';
 
+const VERCEL_CONFIG = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'));
+
 // vercel.json header rules, with their "(.*)" wildcards turned into regular expressions
-const HEADER_RULES = (JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8')).headers || [])
+const HEADER_RULES = (VERCEL_CONFIG.headers || [])
     .map(rule => ({
         pattern: new RegExp(`^${rule.source.split('(.*)').map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('(.*)')}$`),
         headers: rule.headers,
@@ -83,6 +85,13 @@ http.createServer(async (req, res) => {
         res.statusCode = 403;
         return res.end();
     }
+    // cleanUrls, as on Vercel: /page.html redirects to /page (and /index.html to /), /page serves page.html
+    if (VERCEL_CONFIG.cleanUrls && url.pathname.endsWith('.html')) {
+        res.statusCode = 308;
+        res.setHeader('Location', url.pathname.replace(/(index)?\.html$/, '') + url.search);
+        return res.end();
+    }
+    if (VERCEL_CONFIG.cleanUrls && !path.extname(file) && fs.existsSync(`${file}.html`)) file += '.html';
     if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');
     fs.readFile(file, (err, data) => {
         if (err) { res.statusCode = 404; return res.end('Not found'); }

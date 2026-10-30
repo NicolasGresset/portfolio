@@ -99,7 +99,7 @@ function preload(fixture) {
 }
 
 // Installs the preload script and loads the page; record: real calls, kept for saving
-async function openWithFixture({ send, context }, { record = false, url = `${BASE_URL}/rendez-vous.html` } = {}) {
+async function openWithFixture({ send, context }, { record = false, url = `${BASE_URL}/rendez-vous` } = {}) {
     const fixture = record ? { now: null } : JSON.parse(fs.readFileSync(FIXTURE_FILE, 'utf8'));
     const args = JSON.stringify({ baseUrl: BASE_URL, now: fixture.now, responses: fixture.responses });
     await send('script.addPreloadScript', { functionDeclaration: `() => (${preload})(${args})`, contexts: [context] });

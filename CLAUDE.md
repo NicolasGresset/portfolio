@@ -24,7 +24,8 @@ This file is excluded from the deployment (`.vercelignore`) but versioned on Git
 - `api/*.js`: Vercel serverless functions for the sport and cinema pages only (keys in Vercel env, see `.env.example`).
 - Local dev: `node --env-file=.env scripts/dev-server.js`; it sends `vercel.json`'s headers, and
   `CSP_REPORT=1` (or `only`, not enforced) logs Content-Security-Policy violations.
-- `vercel.json`: Content-Security-Policy for every path, long cache for `assets/fonts/`. **Any new
+- `vercel.json`: `cleanUrls` (pages served at `/rendez-vous`, `/rendez-vous.html` 308-redirects there, so
+  internal links omit `.html`; the dev server does the same), Content-Security-Policy for every path, long cache for `assets/fonts/`. **Any new
   external service called from a page (fetch, image, script) must be added to the CSP**, and the
   third-party list of `legal.html` (English legal notice and privacy page) kept true.
 - Fonts (`assets/fonts`) and Leaflet (`assets/vendor/leaflet`) are served by the site: no
