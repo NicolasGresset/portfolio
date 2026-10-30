@@ -48,7 +48,7 @@ The meeting point tool, born here as the "location" page, now has its own reposi
 next steps: home server, better algorithm) and Vercel project, at `rendez-vous.gresset-bourgeois.fr`.
 The history of its files stays here, deleted in one commit. What remains of it in this site:
 `projects.html` (a paragraph and links), the `redirects` of `vercel.json` (`/rendez-vous`,
-`/location`, with or without `.html`), and a paragraph of `legal.html`. Tool work goes to its own
+`/location`, with or without `.html`); `legal.html` does not mention it (the user's choice). Tool work goes to its own
 repository, not here.
 
 ## Open topics (update when they move)
