@@ -1,88 +1,53 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Tous les projets de Nicolas Gresset-Bourgeois — réseaux, algorithmes, spatial.">
+    <meta name="description" content="Les projets de Nicolas Gresset-Bourgeois.">
     <title>Projets — Nicolas Gresset-Bourgeois</title>
     <link rel="stylesheet" href="css/fonts.css">
     <link rel="stylesheet" href="css/base.css">
     <link rel="stylesheet" href="css/article.css">
 </head>
+
 <body>
 
-<!-- ======= NAVIGATION ======= -->
-<nav class="nav" aria-label="Navigation principale"></nav>
+    <!-- ======= NAVIGATION ======= -->
+    <nav class="nav" aria-label="Navigation principale"></nav>
 
-<!-- ======= PAGE HEADER ======= -->
-<header class="page-header">
-    <div class="container">
-        <p class="page-header-label">// travaux</p>
-        <h1 class="page-header-title">Projets</h1>
-    </div>
-</header>
+    <!-- ======= PAGE HEADER ======= -->
+    <header class="page-header">
+        <div class="container">
+            <p class="page-header-label">// travaux</p>
+            <h1 class="page-header-title">Projets</h1>
+        </div>
+    </header>
 
-<!-- ======= PROJECTS LIST ======= -->
-<main>
-    <div class="container">
+    <main>
+        <div class="container page-main">
+            <div class="article-content">
 
-        <div class="tag-filters" id="tag-filters" role="group" aria-label="Filtrer par tag"></div>
+                <h2>Rendez-vous</h2>
+                <p>
+                    Où se retrouver à plusieurs ? Rendez-vous part du point de départ et du mode de transport de
+                    chacun (marche, vélo, voiture, transports en commun) et propose les bars, restaurants ou
+                    stations de l'agglomération toulousaine les plus rapides à rejoindre pour tout le groupe,
+                    pour une heure d'arrivée choisie. Tout le calcul se fait dans le navigateur, avec des données
+                    ouvertes (OpenStreetMap, Tisséo) et des calculateurs d'itinéraires libres.
+                    <a href="https://rendez-vous.gresset-bourgeois.fr">Essayer Rendez-vous</a> ou lire
+                    <a href="https://github.com/NicolasGresset/rendez-vous" target="_blank"
+                        rel="noopener noreferrer">son code sur GitHub</a>.
+                </p>
 
-        <div class="projects-grid" id="projects-grid"></div>
+            </div>
+        </div>
+    </main>
 
-        <p id="no-results" style="display:none; font-family: var(--font-mono); font-size: 0.85rem; color: var(--color-text-muted); padding: 2rem 0;">
-            Aucun projet pour ce tag.
-        </p>
+    <!-- ======= FOOTER ======= -->
+    <footer class="footer"></footer>
 
-    </div><!-- /.container -->
-</main>
-
-<!-- ======= FOOTER ======= -->
-<footer class="footer" style="margin-top: 4rem;"></footer>
-
-<script src="js/layout.js"></script>
-<script>
-    const GH_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>`;
-
-    fetch('data/projects.json')
-        .then(r => r.json())
-        .then(projects => {
-            const filtersDiv = document.getElementById('tag-filters');
-            const grid = document.getElementById('projects-grid');
-            const noRes = document.getElementById('no-results');
-
-            const allTags = [...new Set(projects.flatMap(p => p.tags))];
-
-            filtersDiv.innerHTML = `<button class="tag-filter active" data-filter="all">tous</button>` +
-                allTags.map(t => `<button class="tag-filter" data-filter="${t}">${t}</button>`).join('');
-
-            grid.innerHTML = projects.map(p => `
-                <article class="project-card" data-tags="${p.tags.join(' ')}">
-                    <h2 class="project-card-title">${p.title}</h2>
-                    <p class="project-card-desc">${p.desc}</p>
-                    <div class="project-tags">${p.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>
-                    <div class="project-links">
-                        <a href="${p.github}" class="project-link" aria-label="Code source sur GitHub">
-                            ${GH_SVG}GitHub
-                        </a>
-                    </div>
-                </article>`).join('');
-
-            filtersDiv.querySelectorAll('.tag-filter').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    filtersDiv.querySelectorAll('.tag-filter').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    const f = btn.dataset.filter;
-                    let visible = 0;
-                    grid.querySelectorAll('.project-card').forEach(card => {
-                        const show = f === 'all' || card.dataset.tags.split(' ').includes(f);
-                        card.style.display = show ? '' : 'none';
-                        if (show) visible++;
-                    });
-                    noRes.style.display = visible === 0 ? 'block' : 'none';
-                });
-            });
-        });
-</script>
+    <script src="js/layout.js"></script>
 </body>
+
 </html>

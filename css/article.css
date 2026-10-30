@@ -1,21 +1,8 @@
-/* article.css - Long-form text pages: legal notice, blog articles, projects and blog lists */
+/* article.css - Long-form text pages: legal notice, projects, blog articles and the blog list */
 
 /* =============================================
-   PROJECT CARDS
+   TAGS OF A BLOG ENTRY
    ============================================= */
-.project-card {
-    gap: 0.8rem;
-}
-
-.project-card-desc {
-    font-family: var(--font-sans);
-    font-size: var(--text-lg);
-    font-weight: 300;
-    color: var(--color-text-secondary);
-    line-height: 1.65;
-    flex: 1;
-}
-
 .project-tags {
     display: flex;
     flex-wrap: wrap;
@@ -27,54 +14,6 @@
 .tag[data-type="recherche"] { color: #A78BFA; background: rgba(167,139,250,0.08); border-color: rgba(167,139,250,0.3); }
 .tag[data-type="culture"]   { color: var(--color-orange); background: var(--color-orange-tint); border-color: var(--color-orange-line); }
 .tag[data-type="perso"]     { color: #4ADEAC; background: rgba(74,222,172,0.08); border-color: rgba(74,222,172,0.3); }
-
-.project-links {
-    display: flex;
-    gap: 1rem;
-    margin-top: 0.25rem;
-}
-
-.project-link {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    transition: color 0.2s;
-}
-.project-link:hover { color: var(--color-accent-light); }
-
-/* =============================================
-   TAG FILTERS (projects page)
-   ============================================= */
-.tag-filters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-bottom: 2.25rem;
-}
-
-.tag-filter {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-secondary);
-    background: none;
-    border: 1px solid var(--color-border);
-    padding: 0.3rem 0.75rem;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: all 0.2s;
-}
-.tag-filter:hover {
-    border-color: var(--color-accent);
-    color: var(--color-accent-light);
-}
-.tag-filter.active {
-    background: var(--color-accent);
-    color: var(--color-on-accent);
-    border-color: var(--color-accent);
-}
 
 /* =============================================
    BLOG FULL LIST (blog page)

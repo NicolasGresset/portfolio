@@ -22,12 +22,6 @@
     --color-blue-tint:    rgba(74, 144, 217, 0.08);
     --color-blue-line:    rgba(74, 144, 217, 0.3);
     --color-red:          #DC2626;
-    --color-red-dark:     #B91C1C;
-    --color-green:        #15803D;
-    --color-warning-bg:   #FFF7E6;
-    --color-warning-text: #8A5200;
-    --color-on-accent:    #FFFFFF;
-    --shadow-popup: 0 6px 18px rgba(12, 26, 46, 0.12);
 
     --radius-sm: 4px;
     --radius-md: 6px;
@@ -170,16 +164,6 @@ img { max-width: 100%; display: block; }
 /* =============================================
    LAYOUT UTILITIES
    ============================================= */
-/* Read by screen readers, not shown */
-.visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-}
-
 .container {
     max-width: var(--max-width);
     margin: 0 auto;
@@ -191,30 +175,26 @@ img { max-width: 100%; display: block; }
 /* =============================================
    SHARED COMPONENTS (patterns used by several pages)
    ============================================= */
-/* Cards: white surface with a border (charts and forms, activities, projects) */
+/* Cards: white surface with a border (charts, activities) */
 .chart-card,
-.activity-card,
-.project-card {
+.activity-card {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     padding: 1.5rem;
 }
 /* Cards that are links: they lift on hover */
-.activity-card,
-.project-card {
+.activity-card {
     display: flex;
     flex-direction: column;
     transition: background 0.2s, border-color 0.2s, transform 0.2s;
 }
-.activity-card:hover,
-.project-card:hover {
+.activity-card:hover {
     background: var(--color-surface-hover);
     border-color: var(--color-accent);
     transform: translateY(-2px);
 }
-.activities-grid,
-.projects-grid {
+.activities-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 1.5rem;
@@ -227,8 +207,7 @@ img { max-width: 100%; display: block; }
 /* Bold mono titles of cards */
 .chart-title,
 .film-title,
-.activity-title,
-.project-card-title {
+.activity-title {
     font-family: var(--font-mono);
     font-size: var(--text-xl);
     font-weight: 700;
@@ -260,7 +239,7 @@ img { max-width: 100%; display: block; }
 }
 
 /* =============================================
-   TAGS (publications, projects)
+   TAGS (publications, blog)
    ============================================= */
 .tag {
     font-family: var(--font-mono);
@@ -305,7 +284,7 @@ img { max-width: 100%; display: block; }
 .section-label--spaced { margin: 3rem 0 1.25rem; }
 
 /* =============================================
-   CHARTS AND STATUS MESSAGES (sport, run detail, cinema; legends also Rendez-vous)
+   CHARTS AND STATUS MESSAGES (sport, run detail, cinema)
    ============================================= */
 .activities-status {
     font-family: var(--font-mono);

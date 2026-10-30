@@ -5,13 +5,12 @@
 
 (function () {
     const LINKS = [
+        { href: 'projects',          label: 'projets' },
         // Hidden for now
-        // { href: 'projects',          label: 'projets' },
         // { href: 'blog',              label: 'blog' },
         { href: 'cinema',            label: 'cinéma' },
         { href: 'sport',             label: 'sport' },
         { href: 'publications',      label: 'publications' },
-        { href: 'rendez-vous',       label: 'rendez-vous' },
     ];
 
     // Site root, resolved from this script's URL so pages in subfolders (blog/) work too

@@ -2,8 +2,9 @@
 //
 // Usage: node --env-file=.env scripts/dev-server.js   ->  http://localhost:3000
 //
-// The headers and cleanUrls of vercel.json are applied as on Vercel. To check a Content-Security-Policy change, set
-// CSP_REPORT=1 (violations logged here, policy enforced) or CSP_REPORT=only (logged, not enforced).
+// The headers, redirects and cleanUrls of vercel.json are applied as on Vercel. To check a
+// Content-Security-Policy change, set CSP_REPORT=1 (violations logged here, policy enforced) or
+// CSP_REPORT=only (logged, not enforced).
 
 const http = require('http');
 const fs   = require('fs');
@@ -65,6 +66,13 @@ http.createServer(async (req, res) => {
             res.end();
         });
         return;
+    }
+    // redirects with a fixed source (no patterns), the query passed on
+    const redirect = (VERCEL_CONFIG.redirects || []).find(r => r.source === url.pathname);
+    if (redirect) {
+        res.statusCode = redirect.permanent ? 308 : 307;
+        res.setHeader('Location', redirect.destination + url.search);
+        return res.end();
     }
     setVercelHeaders(url.pathname, res);
 

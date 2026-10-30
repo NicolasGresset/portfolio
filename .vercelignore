@@ -1,10 +1,5 @@
 scripts/
-docs/
 CLAUDE.md
-data/README.md
-data/tisseo-area.json
 # Not written yet: kept in the repository, left out of the deployment
-projects.html
 blog.html
 data/posts.json
-data/projects.json

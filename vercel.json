@@ -1,12 +1,18 @@
 {
     "cleanUrls": true,
+    "redirects": [
+        { "source": "/rendez-vous", "destination": "https://rendez-vous.gresset-bourgeois.fr/", "permanent": true },
+        { "source": "/rendez-vous.html", "destination": "https://rendez-vous.gresset-bourgeois.fr/", "permanent": true },
+        { "source": "/location", "destination": "https://rendez-vous.gresset-bourgeois.fr/", "permanent": true },
+        { "source": "/location.html", "destination": "https://rendez-vous.gresset-bourgeois.fr/", "permanent": true }
+    ],
     "headers": [
         {
             "source": "/(.*)",
             "headers": [
                 {
                     "key": "Content-Security-Policy",
-                    "value": "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org https://a.ltrbxd.com; font-src 'self'; connect-src 'self' https://api.openrouteservice.org https://api.transitous.org https://api.tisseo.fr https://data.geopf.fr https://api.archives-ouvertes.fr https://doi.org https://api.crossref.org; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
+                    "value": "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: https://a.ltrbxd.com; font-src 'self'; connect-src 'self' https://api.archives-ouvertes.fr https://doi.org https://api.crossref.org; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
                 }
             ]
         },
